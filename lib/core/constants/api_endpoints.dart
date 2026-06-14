@@ -23,6 +23,30 @@ abstract final class ApiEndpoints {
 
   // ── Stock In ──────────────────────────────────────────────────
   static const String stockInSessions = '$_base/stock-in-sessions';
+  static String stockInSessionById(int id) => '$stockInSessions/$id';
+  static String stockInSessionItems(int id) => '$stockInSessions/$id/items';
+  static String stockInSessionItem(int sessionId, int itemId) =>
+      '$stockInSessions/$sessionId/items/$itemId';
+  static String stockInSessionReview(int id) => '$stockInSessions/$id/review';
+  static String stockInSessionFinalize(int id) =>
+      '$stockInSessions/$id/finalize';
+  static String stockInSessionPrint(int id) => '$stockInSessions/$id/print';
+
+  // ── Master Data (used by stock-in flow) ───────────────────────
+  static const String masterDataSuppliers = '$_base/master-data/suppliers';
+  static const String masterDataProducts = '$_base/master-data/products';
+  static const String masterDataUsers = '$_base/master-data/users';
+
+  // ── QR Labels & Print Jobs ────────────────────────────────────
+  static String qrLabelByLot(int lotId) => '$_base/qr-labels/$lotId';
+  static String qrLabelPreview(int lotId) =>
+      '$_base/qr-labels/$lotId/preview';
+  static const String printJobs = '$_base/print-jobs';
+  static String printJobById(int id) => '$printJobs/$id';
+  static String printJobMarkPrinted(int id) =>
+      '$printJobs/$id/mark-printed';
+  static String printJobMarkFailed(int id) => '$printJobs/$id/mark-failed';
+  static const String printJobReprint = '$printJobs/reprint';
 
   // ── Returns ───────────────────────────────────────────────────
   static const String returnSessions = '$_base/return-sessions';

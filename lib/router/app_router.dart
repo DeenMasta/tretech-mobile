@@ -13,7 +13,11 @@ import '../features/disposal/presentation/screens/disposal_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/qr_printing/presentation/screens/qr_printing_screen.dart';
 import '../features/returns/presentation/screens/returns_screen.dart';
-import '../features/stock_in/presentation/screens/stock_in_screen.dart';
+import '../features/stock_in/presentation/screens/confirmation_screen.dart';
+import '../features/stock_in/presentation/screens/create_session_screen.dart';
+import '../features/stock_in/presentation/screens/review_session_screen.dart';
+import '../features/stock_in/presentation/screens/scan_item_screen.dart';
+import '../features/stock_in/presentation/screens/stock_in_list_screen.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -108,7 +112,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.stockIn,
         name: 'stockIn',
-        builder: (_, __) => const StockInScreen(),
+        builder: (_, __) => const StockInListScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.stockInCreate,
+        name: 'stockInCreate',
+        builder: (_, __) => const CreateSessionScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.stockInScan,
+        name: 'stockInScan',
+        builder: (_, state) => ScanItemScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.stockInReview,
+        name: 'stockInReview',
+        builder: (_, state) => ReviewSessionScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.stockInConfirmation,
+        name: 'stockInConfirmation',
+        builder: (_, state) => ConfirmationScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
       ),
       GoRoute(
         path: RouteNames.inventory,

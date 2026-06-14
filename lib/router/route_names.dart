@@ -7,6 +7,9 @@ abstract final class RouteNames {
   static const String dashboard = '/dashboard';
   static const String stockIn = '/stock-in';
   static const String stockInCreate = '/stock-in/create';
+  static const String stockInScan = '/stock-in/:id/scan';
+  static const String stockInReview = '/stock-in/:id/review';
+  static const String stockInConfirmation = '/stock-in/:id/confirmation';
   static const String qrPrinting = '/qr-printing';
   static const String consignment = '/consignment';
   static const String consignmentCreate = '/consignment/create';
