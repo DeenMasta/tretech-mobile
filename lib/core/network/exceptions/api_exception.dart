@@ -10,25 +10,29 @@ sealed class AppException implements Exception {
 
 /// 401 Unauthorized — token expired or invalid
 class UnauthorizedException extends AppException {
-  const UnauthorizedException([super.message = 'Session expired. Please log in again.']);
+  const UnauthorizedException([
+    super.message = 'Session expired. Please log in again.',
+  ]);
 }
 
 /// 403 Forbidden
 class ForbiddenException extends AppException {
-  const ForbiddenException([super.message = 'You do not have permission to perform this action.']);
+  const ForbiddenException([
+    super.message = 'You do not have permission to perform this action.',
+  ]);
 }
 
 /// 404 Not Found
 class NotFoundException extends AppException {
-  const NotFoundException([super.message = 'The requested resource was not found.']);
+  const NotFoundException([
+    super.message = 'The requested resource was not found.',
+  ]);
 }
 
 /// 422 Validation error — Laravel returns errors map
 class ValidationException extends AppException {
-  const ValidationException({
-    required String message,
-    required this.errors,
-  }) : super(message);
+  const ValidationException({required String message, required this.errors})
+    : super(message);
 
   final Map<String, List<String>> errors;
 
@@ -40,21 +44,36 @@ class ValidationException extends AppException {
 
 /// 5xx Server errors
 class ServerException extends AppException {
-  const ServerException([super.message = 'An unexpected server error occurred.']);
-  ServerException.withCode(int code) : super('Server error ($code). Please try again.');
+  const ServerException([
+    super.message = 'An unexpected server error occurred.',
+  ]);
+  ServerException.withCode(int code)
+    : super('Server error ($code). Please try again.');
 }
 
 /// No internet connection
 class NetworkException extends AppException {
-  const NetworkException([super.message = 'No internet connection. Please check your network.']);
+  const NetworkException([
+    super.message = 'No internet connection. Please check your network.',
+  ]);
 }
 
 /// Request timed out
 class TimeoutException extends AppException {
-  const TimeoutException([super.message = 'Request timed out. Please try again.']);
+  const TimeoutException([
+    super.message = 'Request timed out. Please try again.',
+  ]);
 }
 
 /// Generic / unknown error
 class UnknownException extends AppException {
   const UnknownException([super.message = 'An unexpected error occurred.']);
+}
+
+/// Response payload shape is invalid or incomplete
+class InvalidResponseException extends AppException {
+  const InvalidResponseException([
+    super.message =
+        'Unable to sign in because the server returned an incomplete response.',
+  ]);
 }

@@ -15,4 +15,5 @@ abstract final class StorageKeys {
   static const String locale = 'locale';
   static const String theme = 'theme';
   static const String lastSyncedAt = 'last_synced_at';
+  static const String rememberMe = 'remember_me';
 }

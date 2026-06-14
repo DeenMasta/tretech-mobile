@@ -1,50 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/auth/auth_session_provider.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
+import '../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/session_expired_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
+import '../features/consignment/presentation/screens/consignment_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
-import '../features/stock_in/presentation/screens/stock_in_screen.dart';
+import '../features/disposal/presentation/screens/disposal_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/qr_printing/presentation/screens/qr_printing_screen.dart';
-import '../features/consignment/presentation/screens/consignment_screen.dart';
 import '../features/returns/presentation/screens/returns_screen.dart';
-import '../features/disposal/presentation/screens/disposal_screen.dart';
+import '../features/stock_in/presentation/screens/stock_in_screen.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final refreshNotifier = ValueNotifier<int>(0);
+  ref.listen<AuthState>(authProvider, (_, __) {
+    refreshNotifier.value++;
+  });
+  ref.listen<AuthSessionState>(authSessionProvider, (_, __) {
+    refreshNotifier.value++;
+  });
+  ref.onDispose(refreshNotifier.dispose);
+
   return GoRouter(
     initialLocation: RouteNames.splash,
     debugLogDiagnostics: true,
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
+      final sessionState = ref.read(authSessionProvider);
       final isAuthenticated = authState.isAuthenticated;
       final isInitial = authState.status == AuthStatus.initial;
 
       final isOnSplash = state.matchedLocation == RouteNames.splash;
       final isOnLogin = state.matchedLocation == RouteNames.login;
-      final isOnPublic = isOnSplash || isOnLogin;
+      final isOnForgotPassword =
+          state.matchedLocation == RouteNames.forgotPassword;
+      final isOnSessionExpired =
+          state.matchedLocation == RouteNames.sessionExpired;
+      final isOnPublic =
+          isOnSplash || isOnLogin || isOnForgotPassword || isOnSessionExpired;
 
-      // Still initializing — stay on splash
-      if (isInitial || authState.isLoading) {
+      if (sessionState.isExpired) {
+        return isOnSessionExpired ? null : RouteNames.sessionExpired;
+      }
+
+      if (isInitial) {
         return isOnSplash ? null : RouteNames.splash;
       }
 
-      // Not authenticated and trying to access protected route
-      if (!isAuthenticated && !isOnPublic) {
-        return RouteNames.login;
+      if (!isAuthenticated) {
+        if (isOnSplash) {
+          return RouteNames.login;
+        }
+
+        if (!isOnPublic) {
+          return RouteNames.login;
+        }
+
+        return null;
       }
 
-      // Already authenticated and trying to access login
-      if (isAuthenticated && isOnLogin) {
+      if (isAuthenticated &&
+          (isOnSplash ||
+              isOnLogin ||
+              isOnForgotPassword ||
+              isOnSessionExpired)) {
         return RouteNames.dashboard;
       }
 
       return null;
     },
     routes: [
-      // ── Public ────────────────────────────────────────────────
       GoRoute(
         path: RouteNames.splash,
         name: 'splash',
@@ -53,30 +84,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.login,
         name: 'login',
-        builder: (_, __) => const LoginScreen(),
-        pageBuilder: (_, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const LoginScreen(),
-          transitionsBuilder: (_, animation, __, child) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-        ),
+        pageBuilder: (_, state) =>
+            _fadePage(key: state.pageKey, child: const LoginScreen()),
       ),
-
-      // ── Protected ─────────────────────────────────────────────
+      GoRoute(
+        path: RouteNames.forgotPassword,
+        name: 'forgotPassword',
+        pageBuilder: (_, state) =>
+            _fadePage(key: state.pageKey, child: const ForgotPasswordScreen()),
+      ),
+      GoRoute(
+        path: RouteNames.sessionExpired,
+        name: 'sessionExpired',
+        pageBuilder: (_, state) =>
+            _fadePage(key: state.pageKey, child: const SessionExpiredScreen()),
+      ),
       GoRoute(
         path: RouteNames.dashboard,
         name: 'dashboard',
-        builder: (_, __) => const DashboardScreen(),
-        pageBuilder: (_, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const DashboardScreen(),
-          transitionsBuilder: (_, animation, __, child) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-        ),
+        pageBuilder: (_, state) =>
+            _fadePage(key: state.pageKey, child: const DashboardScreen()),
       ),
       GoRoute(
         path: RouteNames.stockIn,
@@ -109,10 +136,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const DisposalScreen(),
       ),
     ],
-    errorBuilder: (context, state) => Scaffold(
-      body: Center(
-        child: Text('Route not found: ${state.error}'),
-      ),
-    ),
+    errorBuilder: (context, state) =>
+        Scaffold(body: Center(child: Text('Route not found: ${state.error}'))),
   );
 });
+
+CustomTransitionPage<void> _fadePage({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage(
+    key: key,
+    child: child,
+    transitionsBuilder: (_, animation, __, pageChild) {
+      return FadeTransition(opacity: animation, child: pageChild);
+    },
+  );
+}

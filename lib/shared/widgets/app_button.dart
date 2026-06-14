@@ -91,7 +91,7 @@ class AppButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            foregroundColor: Colors.black,
+            foregroundColor: AppColors.onPrimary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
             ),
@@ -99,13 +99,15 @@ class AppButton extends StatelessWidget {
           child: child,
         ),
       AppButtonVariant.secondary => ElevatedButton(
+
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.surfaceElevated,
             foregroundColor: AppColors.textPrimary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
+
             ),
           ),
           child: child,
@@ -114,7 +116,8 @@ class AppButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
-            side: const BorderSide(color: AppColors.primary),
+            side: BorderSide(color: AppColors.primary),
+
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
             ),
@@ -146,7 +149,8 @@ class AppButton extends StatelessWidget {
   }
 
   Color get _labelColor => switch (variant) {
-        AppButtonVariant.primary => Colors.black,
+        AppButtonVariant.primary => AppColors.onPrimary,
+
         AppButtonVariant.secondary => AppColors.textPrimary,
         AppButtonVariant.outlined => AppColors.primary,
         AppButtonVariant.ghost => AppColors.textSecondary,

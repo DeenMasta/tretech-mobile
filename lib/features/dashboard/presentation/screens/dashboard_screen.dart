@@ -4,10 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
-import '../../../../shared/widgets/kpi_card.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../../router/route_names.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/models/dashboard_summary_model.dart';
+import '../providers/dashboard_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -19,6 +20,11 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
   bool _sidebarExpanded = true;
+
+  // ── Filter state (mirrors web Operations Dashboard) ────────
+  // ignore: unused_field
+  DateTimeRange? _appliedRange;
+  String _quickRange = 'all'; // '7d' | '30d' | 'all'
 
   static const _navItems = [
     _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: RouteNames.dashboard),
@@ -58,7 +64,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       backgroundColor: AppColors.sidebarBg,
       leading: Builder(
         builder: (ctx) => IconButton(
-          icon: const Icon(Icons.menu_rounded, color: AppColors.textSecondary),
+          icon: Icon(Icons.menu_rounded, color: AppColors.textSecondary),
+
           onPressed: () => Scaffold.of(ctx).openDrawer(),
         ),
       ),
@@ -84,10 +91,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       width: width,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: AppColors.sidebarGradient,
         border: Border(right: BorderSide(color: AppColors.border)),
       ),
+
       child: Column(
         children: [
           // Logo / Brand
@@ -129,9 +137,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [AppColors.primary, AppColors.primaryDark],
               ),
+
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
@@ -141,16 +150,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ],
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'T',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: Colors.black,
+                  color: AppColors.onPrimary,
                 ),
               ),
             ),
+
           ),
           if (_sidebarExpanded) ...[
             const SizedBox(width: AppDimensions.spaceMd),
@@ -177,21 +187,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             // Collapse toggle
             GestureDetector(
               onTap: () => setState(() => _sidebarExpanded = false),
-              child: const Icon(
+              child: Icon(
                 Icons.chevron_left_rounded,
                 size: 20,
                 color: AppColors.textMuted,
               ),
+
             ),
           ] else ...[
             const Spacer(),
             GestureDetector(
               onTap: () => setState(() => _sidebarExpanded = true),
-              child: const Icon(
+              child: Icon(
                 Icons.chevron_right_rounded,
                 size: 20,
                 color: AppColors.textMuted,
               ),
+
             ),
           ],
         ],
@@ -252,10 +264,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Container(
                     width: 4,
                     height: 4,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
+
                   ),
               ],
             ],
@@ -268,9 +281,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildSidebarFooter(String userName) {
     return Container(
       padding: const EdgeInsets.all(AppDimensions.spaceMd),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.divider)),
       ),
+
       child: InkWell(
         onTap: () async {
           await ref.read(authProvider.notifier).logout();
@@ -313,11 +327,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.logout_rounded,
                   size: AppDimensions.iconMd,
                   color: AppColors.textMuted,
                 ),
+
               ],
             ],
           ),
@@ -344,25 +359,76 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildDashboardContent() {
+    final isWide = MediaQuery.sizeOf(context).width >= 768;
+    final summaryAsync = ref.watch(dashboardSummaryProvider(_quickRange));
+
+    return summaryAsync.when(
+      loading: () => _buildDashboardScrollView(isWide, null),
+      error: (error, _) =>
+          _buildDashboardScrollView(isWide, null, error: error.toString()),
+      data: (summary) => _buildDashboardScrollView(isWide, summary),
+    );
+  }
+
+  Widget _buildDashboardScrollView(
+    bool isWide,
+    DashboardSummary? summary, {
+    String? error,
+  }) {
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: _buildTopBar()),
+        if (isWide) SliverToBoxAdapter(child: _buildTopBar()),
         SliverPadding(
           padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              _buildPageHeader(),
-              const SizedBox(height: AppDimensions.spaceXxl),
-              _buildKpiGrid(),
-              const SizedBox(height: AppDimensions.spaceXxl),
-              _buildRecentActivity(),
-              const SizedBox(height: AppDimensions.spaceXxl),
-              _buildAlertPanel(),
+              if (error != null) ...[
+                _buildErrorBanner(error),
+                const SizedBox(height: AppDimensions.spaceMd),
+              ],
+              _buildHeroPanel(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildStatCardsGrid(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildDailyFlowPanel(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildActionBoard(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildMonthlyThroughput(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildStatusDistribution(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildTopMovedProducts(summary),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _buildPipelineDrafts(summary),
               const SizedBox(height: AppDimensions.space4xl),
             ]),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildErrorBanner(String error) {
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceMd),
+      decoration: BoxDecoration(
+        color: AppColors.errorContainer,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.error),
+          const SizedBox(width: AppDimensions.spaceSm),
+          Expanded(
+            child: Text(
+              'Failed to load dashboard data. Tap Refresh to try again.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -373,10 +439,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimensions.spaceLg,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.sidebarBg,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
+
       child: Row(
         children: [
           // Search
@@ -392,11 +459,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Row(
                 children: [
                   const SizedBox(width: AppDimensions.spaceMd),
-                  const Icon(
+                  Icon(
                     Icons.search_rounded,
                     size: 16,
                     color: AppColors.textMuted,
                   ),
+
                   const SizedBox(width: AppDimensions.spaceSm),
                   Text(
                     'Search inventory, orders...',
@@ -421,10 +489,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Stack(
       children: [
         IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.notifications_outlined,
             color: AppColors.textSecondary,
           ),
+
           onPressed: () {},
         ),
         Positioned(
@@ -433,10 +502,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.error,
               shape: BoxShape.circle,
             ),
+
           ),
         ),
       ],
@@ -460,7 +530,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildPageHeader() {
+  // ── Hero panel — page header + applied range chip + filters ──
+  Widget _buildHeroPanel(DashboardSummary? summary) {
+    final user = ref.watch(currentUserProvider);
     final now = DateTime.now();
     final hour = now.hour;
     final greeting = hour < 12
@@ -468,59 +540,216 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         : hour < 17
             ? 'Good Afternoon'
             : 'Good Evening';
-    final user = ref.watch(currentUserProvider);
 
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceLg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '$greeting, ${user?.name.split(' ').first ?? 'User'} 👋',
-                style: AppTextStyles.headlineSmall,
-              ),
-              const SizedBox(height: AppDimensions.spaceXs),
-              Text(
-                'Here\'s what\'s happening with your warehouse today.',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$greeting, ${user?.name.split(' ').first ?? 'User'} 👋',
+                      style: AppTextStyles.headlineSmall,
+                    ),
+                    const SizedBox(height: AppDimensions.spaceXs),
+                    Text(
+                      'Live overview of lot lifecycle, consignments, and stock movements.',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: AppDimensions.spaceSm),
+              _appliedRangeChip(),
             ],
           ),
-        ),
-        // Date chip
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spaceMd,
-            vertical: AppDimensions.spaceXs,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
+          const SizedBox(height: AppDimensions.spaceLg),
+          Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: AppDimensions.spaceLg),
+          // Quick range chips
+          Wrap(
+            spacing: AppDimensions.spaceSm,
+            runSpacing: AppDimensions.spaceSm,
             children: [
-              const Icon(
-                Icons.calendar_today_outlined,
-                size: 14,
-                color: AppColors.textMuted,
+              _quickRangeChip('Last 7 days', '7d'),
+              _quickRangeChip('Last 30 days', '30d'),
+              _quickRangeChip('All dates', 'all'),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          // Live stats
+          Wrap(
+            spacing: AppDimensions.spaceSm,
+            runSpacing: AppDimensions.spaceSm,
+            children: [
+              _outlineChip(
+                summary != null
+                    ? 'Total Lots: ${summary.lotCounts.total}'
+                    : 'Total Lots: —',
               ),
-              const SizedBox(width: AppDimensions.spaceXs),
-              Text(
-                _formatDate(now),
-                style: AppTextStyles.labelMedium,
+              _outlineChip(
+                summary != null
+                    ? 'Movements Today: ${summary.todayActivity.movementsTotal}'
+                    : 'Movements Today: —',
               ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildKpiGrid() {
+  Widget _appliedRangeChip() {
+    final label = _quickRange == '7d'
+        ? 'Last 7 days'
+        : _quickRange == '30d'
+            ? 'Last 30 days'
+            : 'All available dates';
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.spaceMd,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 12,
+            color: AppColors.textMuted,
+          ),
+          const SizedBox(width: AppDimensions.spaceXs),
+          Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickRangeChip(String label, String key) {
+    final isActive = _quickRange == key;
+    return InkWell(
+      onTap: () => setState(() => _quickRange = key),
+      borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.spaceMd,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primaryContainer : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+          border: Border.all(
+            color: isActive ? AppColors.primary.withValues(alpha: 0.4) : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: isActive ? AppColors.primary : AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _outlineChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.spaceMd,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.labelSmall.copyWith(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  // ── Stat cards grid (4 KPI cards with tone badges + sparklines) ──
+  Widget _buildStatCardsGrid(DashboardSummary? summary) {
+    // Extract last N transaction counts from a trend list for sparkline display
+    List<int> sparkline(List<DashboardTrendPoint> trend, {int n = 7}) {
+      if (trend.isEmpty) return [];
+      final slice = trend.length > n ? trend.sublist(trend.length - n) : trend;
+      return slice.map((t) => t.transactionCount).toList();
+    }
+
+    final stockInSpark =
+        summary != null ? sparkline(summary.stockInTrend) : <int>[];
+    final consignSpark =
+        summary != null ? sparkline(summary.consignmentTrend) : <int>[];
+    final holdingCount = summary?.lotCounts.holding ?? 0;
+
+    final cards = <_StatCardData>[
+      _StatCardData(
+        label: 'Available stock',
+        value: summary != null ? summary.lotCounts.available.toString() : '—',
+        helper: 'Lots currently in warehouse.',
+        trend: 'Ready for consignment',
+        tone: _StatTone.positive,
+        sparkline: stockInSpark,
+      ),
+      _StatCardData(
+        label: 'Holding area',
+        value: summary != null ? holdingCount.toString() : '—',
+        helper: 'Lots pending admin assignment.',
+        trend: holdingCount > 0 ? 'Requires lot assignment' : 'All assigned',
+        tone: holdingCount > 0 ? _StatTone.negative : _StatTone.positive,
+        sparkline: const [],
+      ),
+      _StatCardData(
+        label: 'Supplied to clients',
+        value: summary != null ? summary.lotCounts.supplied.toString() : '—',
+        helper: 'Active consignments at client locations.',
+        trend: 'Currently consigned',
+        tone: _StatTone.neutral,
+        sparkline: consignSpark,
+      ),
+      _StatCardData(
+        label: 'Movements today',
+        value: summary != null
+            ? summary.todayActivity.movementsTotal.toString()
+            : '—',
+        helper: 'Total stock movements recorded today.',
+        trend: 'Active operations',
+        tone: _StatTone.positive,
+        sparkline: const [],
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -541,46 +770,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: AppDimensions.spaceMd,
               mainAxisSpacing: AppDimensions.spaceMd,
-              childAspectRatio: 1.3,
-              children: const [
-                KpiCard(
-                  title: 'Total Stock In',
-                  value: '1,284',
-                  subtitle: 'Items received',
-                  icon: Icons.inventory_2_rounded,
-                  trend: 12.5,
-                  gradient: AppColors.cardGradientGreen,
-                  accentColor: AppColors.primary,
-                ),
-                KpiCard(
-                  title: 'Pending QR Print',
-                  value: '47',
-                  subtitle: 'Labels queued',
-                  icon: Icons.qr_code_2_rounded,
-                  trend: -3.2,
-                  trendLabel: '-3 items',
-                  gradient: AppColors.cardGradientBlue,
-                  accentColor: AppColors.accent,
-                ),
-                KpiCard(
-                  title: 'Consignments',
-                  value: '23',
-                  subtitle: 'Active shipments',
-                  icon: Icons.local_shipping_rounded,
-                  trend: 8.1,
-                  gradient: AppColors.cardGradientGreen,
-                  accentColor: AppColors.success,
-                ),
-                KpiCard(
-                  title: 'Returns & Disposal',
-                  value: '9',
-                  subtitle: 'Pending review',
-                  icon: Icons.assignment_return_rounded,
-                  trend: -1.0,
-                  trendLabel: '-1 item',
-                  gradient: AppColors.cardGradientOrange,
-                  accentColor: AppColors.warning,
-                ),
+              childAspectRatio: 0.95,
+              children: [
+                for (final c in cards) _buildStatCard(c),
               ],
             );
           },
@@ -589,129 +781,234 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildRecentActivity() {
-    const activities = [
-      _ActivityItem(
-        'Stock In — Batch #0042',
-        '48 items received from Supplier A',
-        '10 min ago',
-        Icons.inventory_2_rounded,
-        BadgeStatus.success,
-        'Completed',
-      ),
-      _ActivityItem(
-        'QR Print Job',
-        '15 labels printed via Bluetooth',
-        '32 min ago',
-        Icons.qr_code_2_rounded,
-        BadgeStatus.info,
-        'Printed',
-      ),
-      _ActivityItem(
-        'Consignment #C-0017',
-        'Shipped to Distributor XYZ',
-        '1 hr ago',
-        Icons.local_shipping_rounded,
-        BadgeStatus.success,
-        'Dispatched',
-      ),
-      _ActivityItem(
-        'Return #R-0008',
-        'Item rejected — damaged unit',
-        '2 hr ago',
-        Icons.assignment_return_rounded,
-        BadgeStatus.warning,
-        'Pending',
-      ),
-      _ActivityItem(
-        'Disposal #D-0003',
-        '5 expired units disposed',
-        '3 hr ago',
-        Icons.delete_sweep_rounded,
-        BadgeStatus.error,
-        'Disposed',
-      ),
-    ];
+  Widget _buildStatCard(_StatCardData c) {
+    final toneColor = _toneColor(c.tone);
+    final toneLabel = _toneLabel(c.tone);
+    final toneIcon = _toneIcon(c.tone);
+    final hasActivity = c.sparkline.any((v) => v > 0);
 
-    return Column(
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceMd),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  c.label,
+                  style: AppTextStyles.labelLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppDimensions.spaceXs),
+              _toneChip(toneColor, toneLabel, toneIcon),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spaceSm),
+          Text(
+            c.value,
+            style: AppTextStyles.headlineMedium.copyWith(
+              fontWeight: FontWeight.w800,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spaceXs),
+          Text(
+            c.helper,
+            style: AppTextStyles.bodySmall,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            c.trend,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: toneColor,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          SizedBox(
+            height: 32,
+            width: double.infinity,
+            child: hasActivity
+                ? CustomPaint(
+                    painter: _SparklinePainter(
+                      data: c.sparkline,
+                      color: toneColor,
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      'No recent activity',
+                      style: AppTextStyles.labelSmall,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toneChip(Color color, String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _toneColor(_StatTone tone) => switch (tone) {
+        _StatTone.positive => AppColors.success,
+        _StatTone.negative => AppColors.error,
+        _StatTone.neutral => AppColors.textMuted,
+      };
+
+  String _toneLabel(_StatTone tone) => switch (tone) {
+        _StatTone.positive => 'Healthy',
+        _StatTone.negative => 'Risk',
+        _StatTone.neutral => 'Watch',
+      };
+
+  IconData _toneIcon(_StatTone tone) => switch (tone) {
+        _StatTone.positive => Icons.check_circle_rounded,
+        _StatTone.negative => Icons.warning_amber_rounded,
+        _StatTone.neutral => Icons.schedule_rounded,
+      };
+
+  // ── Section card shell (mirrors web Paper) ───────────────────
+  Widget _sectionCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceLg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _sectionHeader(String title, String subtitle, {Widget? trailing}) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Recent Activity', style: AppTextStyles.titleMedium),
-            TextButton(
-              onPressed: () {},
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppDimensions.spaceMd),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: activities.length,
-            separatorBuilder: (_, __) => const Divider(
-              height: 1,
-              color: AppColors.divider,
-            ),
-            itemBuilder: (_, i) => _buildActivityTile(activities[i]),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTextStyles.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: AppTextStyles.bodySmall,
+              ),
+            ],
           ),
         ),
+        if (trailing != null) ...[
+          const SizedBox(width: AppDimensions.spaceSm),
+          trailing,
+        ],
       ],
     );
   }
 
-  Widget _buildActivityTile(_ActivityItem item) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.spaceLg,
-        vertical: AppDimensions.spaceMd,
-      ),
-      child: Row(
+  // ── Daily stock flow chart ──────────────────────────────────
+  Widget _buildDailyFlowPanel(DashboardSummary? summary) {
+    // Merge both trend series on a shared date axis (up to 30 days)
+    final siMap = <String, double>{};
+    final cnMap = <String, double>{};
+    if (summary != null) {
+      for (final t in summary.stockInTrend) {
+        siMap[t.date] = t.transactionCount.toDouble();
+      }
+      for (final t in summary.consignmentTrend) {
+        cnMap[t.date] = t.transactionCount.toDouble();
+      }
+    }
+    final allDates = ({...siMap.keys, ...cnMap.keys}.toList()..sort())
+        .take(30)
+        .toList();
+    final stockIn = allDates.isEmpty
+        ? <double>[0, 0]
+        : allDates.map((d) => siMap[d] ?? 0.0).toList();
+    final consigned = allDates.isEmpty
+        ? <double>[0, 0]
+        : allDates.map((d) => cnMap[d] ?? 0.0).toList();
+    final labels = allDates.isEmpty
+        ? <String>['—', '—']
+        : allDates.map((d) {
+            final parts = d.split('-');
+            return parts.length == 3 ? parts[2] : d;
+          }).toList();
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-            ),
-            child: Icon(
-              item.icon,
-              size: AppDimensions.iconMd,
-              color: AppColors.textSecondary,
+          _sectionHeader(
+            'Daily stock flow',
+            'Compare stock-in and consignment movements over time.',
+          ),
+          const SizedBox(height: AppDimensions.spaceLg),
+          SizedBox(
+            height: 200,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _AreaChartPainter(
+                seriesA: stockIn,
+                seriesB: consigned,
+                colorA: AppColors.info,
+                colorB: AppColors.warning,
+                gridColor: AppColors.divider,
+                labels: labels,
+                axisLabelColor: AppColors.textMuted,
+              ),
             ),
           ),
-          const SizedBox(width: AppDimensions.spaceMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.title, style: AppTextStyles.labelLarge),
-                const SizedBox(height: 2),
-                Text(
-                  item.subtitle,
-                  style: AppTextStyles.bodySmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppDimensions.spaceMd),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          const SizedBox(height: AppDimensions.spaceMd),
+          Wrap(
+            spacing: AppDimensions.spaceMd,
+            runSpacing: AppDimensions.spaceXs,
             children: [
-              StatusBadge(label: item.statusLabel, status: item.status),
-              const SizedBox(height: 4),
-              Text(item.time, style: AppTextStyles.labelSmall),
+              _legendDot('Stock in events', AppColors.info),
+              _legendDot('Consigned events', AppColors.warning),
             ],
           ),
         ],
@@ -719,78 +1016,435 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildAlertPanel() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _legendDot(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Alerts & Notifications', style: AppTextStyles.titleMedium),
-        const SizedBox(height: AppDimensions.spaceMd),
-        _buildAlertCard(
-          icon: Icons.warning_amber_rounded,
-          title: 'Low Stock Alert',
-          message: '3 items have fallen below minimum stock level.',
-          status: BadgeStatus.warning,
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(height: AppDimensions.spaceSm),
-        _buildAlertCard(
-          icon: Icons.bluetooth_rounded,
-          title: 'Printer Disconnected',
-          message: 'Bluetooth thermal printer is not connected.',
-          status: BadgeStatus.error,
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildAlertCard({
-    required IconData icon,
-    required String title,
-    required String message,
-    required BadgeStatus status,
-  }) {
-    final color = switch (status) {
-      BadgeStatus.warning => AppColors.warning,
+  // ── Operations action board ─────────────────────────────────
+  Widget _buildActionBoard(DashboardSummary? summary) {
+    final al = summary?.alerts;
+    final holdPending = al?.holdingLotsPending ?? 0;
+    final expiring = al?.expiringSoon30Days ?? 0;
+    final overdueDrafts = al?.overdueStockInDrafts ?? 0;
+    final reconPending = al?.reconciliationPending ?? 0;
+
+    final items = <_ActionAlert>[
+      _ActionAlert(
+        'Lots in holding',
+        holdPending,
+        holdPending > 0 ? BadgeStatus.warning : BadgeStatus.success,
+      ),
+      _ActionAlert(
+        'Lots expiring (<30 days)',
+        expiring,
+        expiring > 0 ? BadgeStatus.error : BadgeStatus.success,
+      ),
+      _ActionAlert(
+        'Overdue stock-in drafts',
+        overdueDrafts,
+        overdueDrafts > 0 ? BadgeStatus.warning : BadgeStatus.success,
+      ),
+      _ActionAlert(
+        'Pending reconciliations',
+        reconPending,
+        reconPending > 0 ? BadgeStatus.warning : BadgeStatus.success,
+      ),
+    ];
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Operations action board',
+            style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          for (var i = 0; i < items.length; i++) ...[
+            _actionAlertTile(items[i]),
+            if (i < items.length - 1) const SizedBox(height: AppDimensions.spaceXs),
+          ],
+          const SizedBox(height: AppDimensions.spaceLg),
+          OutlinedButton.icon(
+            onPressed: () =>
+                ref.invalidate(dashboardSummaryProvider(_quickRange)),
+            icon: Icon(Icons.refresh_rounded, size: 16, color: AppColors.textPrimary),
+            label: Text(
+              'Refresh dashboard',
+              style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: AppColors.border),
+              foregroundColor: AppColors.textPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.spaceLg,
+                vertical: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionAlertTile(_ActionAlert a) {
+    final tone = switch (a.status) {
       BadgeStatus.error => AppColors.error,
+      BadgeStatus.warning => AppColors.warning,
       BadgeStatus.success => AppColors.success,
       _ => AppColors.info,
     };
+    final bg = switch (a.status) {
+      BadgeStatus.error => AppColors.errorContainer,
+      BadgeStatus.warning => AppColors.warningContainer,
+      BadgeStatus.success => AppColors.successContainer,
+      _ => AppColors.infoContainer,
+    };
 
     return Container(
-      padding: const EdgeInsets.all(AppDimensions.spaceLg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.spaceMd,
+        vertical: 10,
+      ),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: bg,
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppDimensions.spaceSm),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
+          Expanded(
+            child: Text(
+              a.label,
+              style: AppTextStyles.labelLarge,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            child: Icon(icon, size: AppDimensions.iconMd, color: color),
+          ),
+          Text(
+            a.value.toString(),
+            style: AppTextStyles.titleSmall.copyWith(
+              color: tone,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Monthly throughput (grouped bars) ───────────────────────
+  Widget _buildMonthlyThroughput(DashboardSummary? summary) {
+    // Aggregate daily trend data by month (last 6 months)
+    Map<String, double> byMonth(List<DashboardTrendPoint> trend) {
+      final result = <String, double>{};
+      for (final t in trend) {
+        if (t.date.length >= 7) {
+          final key = t.date.substring(0, 7); // 'YYYY-MM'
+          result[key] = (result[key] ?? 0) + t.transactionCount;
+        }
+      }
+      return result;
+    }
+
+    const monthAbbr = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    final siM = summary != null
+        ? byMonth(summary.stockInTrend)
+        : <String, double>{};
+    final cnM = summary != null
+        ? byMonth(summary.consignmentTrend)
+        : <String, double>{};
+    final allKeys =
+        ({...siM.keys, ...cnM.keys}.toList()..sort()).toList();
+    final last6 = allKeys.length > 6
+        ? allKeys.sublist(allKeys.length - 6)
+        : allKeys;
+
+    final months = last6.isEmpty
+        ? <String>['—']
+        : last6.map((k) {
+            final parts = k.split('-');
+            if (parts.length == 2) {
+              final m = int.tryParse(parts[1]);
+              if (m != null && m >= 1 && m <= 12) return monthAbbr[m - 1];
+            }
+            return k;
+          }).toList();
+    final stockIn = last6.isEmpty
+        ? <double>[0]
+        : last6.map((k) => siM[k] ?? 0.0).toList();
+    final consigned = last6.isEmpty
+        ? <double>[0]
+        : last6.map((k) => cnM[k] ?? 0.0).toList();
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            'Monthly throughput',
+            'Stock-in versus consignment transactions.',
+          ),
+          const SizedBox(height: AppDimensions.spaceLg),
+          SizedBox(
+            height: 220,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _BarChartPainter(
+                seriesA: stockIn,
+                seriesB: consigned,
+                colorA: AppColors.info,
+                colorB: AppColors.warning,
+                gridColor: AppColors.divider,
+                labels: months,
+                axisLabelColor: AppColors.textMuted,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          Wrap(
+            spacing: AppDimensions.spaceMd,
+            runSpacing: AppDimensions.spaceXs,
+            children: [
+              _legendDot('Stock in events', AppColors.info),
+              _legendDot('Consignment events', AppColors.warning),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Inventory status distribution (horizontal bars) ─────────
+  Widget _buildStatusDistribution(DashboardSummary? summary) {
+    final lc = summary?.lotCounts;
+    final data = <_StatusBarItem>[
+      _StatusBarItem('Available', lc?.available ?? 0),
+      _StatusBarItem('Holding', lc?.holding ?? 0),
+      _StatusBarItem('Supplied', lc?.supplied ?? 0),
+      _StatusBarItem('Used', lc?.used ?? 0),
+      _StatusBarItem('Disposed', lc?.disposed ?? 0),
+      _StatusBarItem('Ret. to supplier', lc?.returnedToSupplier ?? 0),
+    ];
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            'Inventory status distribution',
+            'Current item count by lifecycle status.',
+          ),
+          const SizedBox(height: AppDimensions.spaceLg),
+          SizedBox(
+            height: 220,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _HorizontalBarChartPainter(
+                items: data,
+                barColor: AppColors.info,
+                gridColor: AppColors.divider,
+                axisLabelColor: AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Top moved products (list) ───────────────────────────────
+  Widget _buildTopMovedProducts(DashboardSummary? summary) {
+    final products = (summary?.topMovedProducts ?? <DashboardTopProduct>[])
+        .map((p) => _TopMovedProduct(p.productName, p.productCode, p.movedQty))
+        .toList();
+    final total = products.fold<int>(0, (sum, p) => sum + p.movedQty);
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            'Top moved products',
+            'Most active items in the selected range.',
+            trailing: _outlineChip('Total: $total'),
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          for (var i = 0; i < products.length; i++) ...[
+            _topMovedTile(products[i], i + 1, total),
+            if (i < products.length - 1)
+              Divider(height: 1, color: AppColors.divider),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _topMovedTile(_TopMovedProduct p, int rank, int total) {
+    final share = total > 0 ? (p.movedQty / total) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppDimensions.spaceMd),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              '#$rank',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           const SizedBox(width: AppDimensions.spaceMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTextStyles.labelLarge),
-                const SizedBox(height: 2),
                 Text(
-                  message,
-                  style: AppTextStyles.bodySmall,
+                  p.name,
+                  style: AppTextStyles.labelLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
+                Text(p.code, style: AppTextStyles.bodySmall),
               ],
             ),
           ),
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 14,
-            color: AppColors.textMuted,
+          const SizedBox(width: AppDimensions.spaceMd),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                p.movedQty.toString(),
+                style: AppTextStyles.labelLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: 80,
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius:
+                            BorderRadius.circular(AppDimensions.radiusFull),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: share,
+                      child: Container(
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.info,
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusFull),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${(share * 100).toStringAsFixed(1)}%',
+                style: AppTextStyles.labelSmall,
+              ),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Operations pipeline drafts ──────────────────────────────
+  Widget _buildPipelineDrafts(DashboardSummary? summary) {
+    final pipeline = summary?.operationsPipeline;
+    final items = <_PipelineItem>[
+      _PipelineItem('Stock-In drafts', pipeline?.stockInDraft ?? 0),
+      _PipelineItem('Consignment drafts', pipeline?.consignmentDraft ?? 0),
+      _PipelineItem(
+          'Returns in progress', pipeline?.returnSessionsInProgress ?? 0),
+      _PipelineItem(
+          'Reconciliations pending', pipeline?.reconciliationPending ?? 0),
+      _PipelineItem('Disposal drafts', pipeline?.disposalDraft ?? 0),
+      _PipelineItem(
+          'Supplier return drafts', pipeline?.supplierReturnDraft ?? 0),
+    ];
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Operations pipeline drafts',
+            style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          for (var i = 0; i < items.length; i++) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.spaceMd,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      items[i].label,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    items[i].value.toString(),
+                    style: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i < items.length - 1) const SizedBox(height: AppDimensions.spaceXs),
+          ],
         ],
       ),
     );
@@ -809,11 +1463,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.border),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.construction_rounded,
               size: 36,
               color: AppColors.primary,
             ),
+
           ),
           const SizedBox(height: AppDimensions.spaceLg),
           Text(moduleName, style: AppTextStyles.headlineSmall),
@@ -830,6 +1485,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // ignore: unused_element
   String _formatDate(DateTime date) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -851,6 +1507,7 @@ class _NavItem {
   final String route;
 }
 
+// ignore: unused_element
 class _ActivityItem {
   const _ActivityItem(
     this.title,
@@ -866,4 +1523,390 @@ class _ActivityItem {
   final IconData icon;
   final BadgeStatus status;
   final String statusLabel;
+}
+
+// ── Stat Card Models ────────────────────────────────────────────
+
+enum _StatTone { positive, negative, neutral }
+
+class _StatCardData {
+  const _StatCardData({
+    required this.label,
+    required this.value,
+    required this.helper,
+    required this.trend,
+    required this.tone,
+    required this.sparkline,
+  });
+
+  final String label;
+  final String value;
+  final String helper;
+  final String trend;
+  final _StatTone tone;
+  final List<int> sparkline;
+}
+
+class _ActionAlert {
+  const _ActionAlert(this.label, this.value, this.status);
+
+  final String label;
+  final int value;
+  final BadgeStatus status;
+}
+
+class _StatusBarItem {
+  const _StatusBarItem(this.label, this.value);
+
+  final String label;
+  final int value;
+}
+
+class _TopMovedProduct {
+  const _TopMovedProduct(this.name, this.code, this.movedQty);
+
+  final String name;
+  final String code;
+  final int movedQty;
+}
+
+class _PipelineItem {
+  const _PipelineItem(this.label, this.value);
+
+  final String label;
+  final int value;
+}
+
+// ── Custom Painters ──────────────────────────────────────────────
+
+class _SparklinePainter extends CustomPainter {
+  const _SparklinePainter({required this.data, required this.color});
+
+  final List<int> data;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.length < 2) return;
+    final maxVal = data.reduce((a, b) => a > b ? a : b).toDouble();
+    if (maxVal == 0) return;
+
+    final step = size.width / (data.length - 1);
+    const vPad = 2.0;
+    final drawH = size.height - vPad * 2;
+
+    final linePaint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [color.withValues(alpha: 0.25), color.withValues(alpha: 0.0)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    final linePath = Path();
+    final fillPath = Path();
+
+    for (int i = 0; i < data.length; i++) {
+      final x = i * step;
+      final y = vPad + drawH - (data[i] / maxVal) * drawH;
+      if (i == 0) {
+        linePath.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        linePath.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+    fillPath.lineTo((data.length - 1) * step, size.height);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(linePath, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(_SparklinePainter old) =>
+      old.data != data || old.color != color;
+}
+
+class _AreaChartPainter extends CustomPainter {
+  const _AreaChartPainter({
+    required this.seriesA,
+    required this.seriesB,
+    required this.colorA,
+    required this.colorB,
+    required this.gridColor,
+    required this.labels,
+    required this.axisLabelColor,
+  });
+
+  final List<double> seriesA;
+  final List<double> seriesB;
+  final Color colorA;
+  final Color colorB;
+  final Color gridColor;
+  final List<String> labels;
+  final Color axisLabelColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const labelH = 20.0;
+    const gridLines = 4;
+    final chartH = size.height - labelH;
+    final n = seriesA.length;
+    if (n < 2) return;
+
+    final allVals = [...seriesA, ...seriesB];
+    final maxVal = allVals.reduce((a, b) => a > b ? a : b);
+    if (maxVal == 0) return;
+
+    final step = size.width / (n - 1);
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.5;
+    for (int g = 0; g <= gridLines; g++) {
+      final y = (g / gridLines) * chartH;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    void drawSeries(List<double> series, Color color) {
+      final linePaint = Paint()
+        ..color = color
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.0)],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, chartH))
+        ..style = PaintingStyle.fill;
+
+      final linePath = Path();
+      final fillPath = Path();
+
+      for (int i = 0; i < series.length; i++) {
+        final x = i * step;
+        final y = chartH - (series[i] / maxVal) * chartH * 0.9;
+        if (i == 0) {
+          linePath.moveTo(x, y);
+          fillPath.moveTo(x, chartH);
+          fillPath.lineTo(x, y);
+        } else {
+          linePath.lineTo(x, y);
+          fillPath.lineTo(x, y);
+        }
+      }
+      fillPath.lineTo((series.length - 1) * step, chartH);
+      fillPath.close();
+
+      canvas.drawPath(fillPath, fillPaint);
+      canvas.drawPath(linePath, linePaint);
+    }
+
+    drawSeries(seriesA, colorA);
+    drawSeries(seriesB, colorB);
+
+    if (labels.isNotEmpty) {
+      final tp = TextPainter(textDirection: TextDirection.ltr);
+      for (int i = 0; i < labels.length && i < n; i++) {
+        final x = i * step;
+        tp.text = TextSpan(
+          text: labels[i],
+          style: TextStyle(fontSize: 9, color: axisLabelColor),
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(x - tp.width / 2, chartH + 4));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AreaChartPainter old) =>
+      old.seriesA != seriesA || old.seriesB != seriesB;
+}
+
+class _BarChartPainter extends CustomPainter {
+  const _BarChartPainter({
+    required this.seriesA,
+    required this.seriesB,
+    required this.colorA,
+    required this.colorB,
+    required this.gridColor,
+    required this.labels,
+    required this.axisLabelColor,
+  });
+
+  final List<double> seriesA;
+  final List<double> seriesB;
+  final Color colorA;
+  final Color colorB;
+  final Color gridColor;
+  final List<String> labels;
+  final Color axisLabelColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const labelH = 20.0;
+    const gridLines = 4;
+    const groupPad = 6.0;
+    const barGap = 2.0;
+    final chartH = size.height - labelH;
+    final n = seriesA.length;
+    if (n == 0) return;
+
+    final allVals = [...seriesA, ...seriesB];
+    final maxVal = allVals.reduce((a, b) => a > b ? a : b);
+    if (maxVal == 0) return;
+
+    final groupW = size.width / n;
+    final barW = (groupW - groupPad * 2 - barGap) / 2;
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.5;
+    for (int g = 0; g <= gridLines; g++) {
+      final y = (g / gridLines) * chartH;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final paintA = Paint()..color = colorA;
+    final paintB = Paint()..color = colorB;
+
+    for (int i = 0; i < n; i++) {
+      final groupX = i * groupW + groupPad;
+      final hA = (seriesA[i] / maxVal) * chartH * 0.9;
+      final hB = (seriesB[i] / maxVal) * chartH * 0.9;
+
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(groupX, chartH - hA, barW, hA),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
+        ),
+        paintA,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(groupX + barW + barGap, chartH - hB, barW, hB),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
+        ),
+        paintB,
+      );
+    }
+
+    if (labels.isNotEmpty) {
+      final tp = TextPainter(textDirection: TextDirection.ltr);
+      for (int i = 0; i < labels.length && i < n; i++) {
+        final cx = i * groupW + groupW / 2;
+        tp.text = TextSpan(
+          text: labels[i],
+          style: TextStyle(fontSize: 9, color: axisLabelColor),
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(cx - tp.width / 2, chartH + 4));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BarChartPainter old) =>
+      old.seriesA != seriesA || old.seriesB != seriesB;
+}
+
+class _HorizontalBarChartPainter extends CustomPainter {
+  const _HorizontalBarChartPainter({
+    required this.items,
+    required this.barColor,
+    required this.gridColor,
+    required this.axisLabelColor,
+  });
+
+  final List<_StatusBarItem> items;
+  final Color barColor;
+  final Color gridColor;
+  final Color axisLabelColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (items.isEmpty) return;
+    const labelW = 110.0;
+    const barH = 14.0;
+    const valuePad = 6.0;
+
+    final maxVal = items.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    if (maxVal == 0) return;
+
+    final rowH = size.height / items.length;
+    final availW = size.width - labelW - 50.0;
+
+    final barPaint = Paint()
+      ..color = barColor
+      ..style = PaintingStyle.fill;
+
+    final bgPaint = Paint()
+      ..color = gridColor.withValues(alpha: 0.5)
+      ..style = PaintingStyle.fill;
+
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      final cy = i * rowH + rowH / 2;
+      final barY = cy - barH / 2;
+      final fillW = (item.value / maxVal) * availW;
+
+      tp.text = TextSpan(
+        text: item.label,
+        style: TextStyle(fontSize: 10, color: axisLabelColor),
+      );
+      tp.layout(maxWidth: labelW - 8);
+      tp.paint(canvas, Offset(0, cy - tp.height / 2));
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(labelW, barY, availW, barH),
+          const Radius.circular(3),
+        ),
+        bgPaint,
+      );
+
+      if (fillW > 0) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(labelW, barY, fillW, barH),
+            const Radius.circular(3),
+          ),
+          barPaint,
+        );
+      }
+
+      tp.text = TextSpan(
+        text: item.value.toString(),
+        style: TextStyle(
+          fontSize: 10,
+          color: axisLabelColor,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(labelW + availW + valuePad, cy - tp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HorizontalBarChartPainter old) => old.items != items;
 }

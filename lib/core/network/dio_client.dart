@@ -12,16 +12,16 @@ import 'interceptors/error_interceptor.dart';
 /// - ErrorInterceptor (typed exceptions)
 /// - PrettyDioLogger (debug only)
 class DioClient {
-  DioClient._() : _dio = _createDio();
+  DioClient._(Ref ref) : _dio = _createDio(ref);
 
   final Dio _dio;
 
   Dio get dio => _dio;
 
-  static Dio _createDio() {
+  static Dio _createDio(Ref ref) {
     const baseUrl = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://api.tretech.com',
+      defaultValue: 'http://tretech-backend.test',
     );
 
     final dio = Dio(
@@ -38,7 +38,7 @@ class DioClient {
     );
 
     dio.interceptors.addAll([
-      AuthInterceptor(),
+      AuthInterceptor(ref),
       ErrorInterceptor(),
       // Only enable logger in debug mode
       if (const bool.fromEnvironment('dart.vm.product') == false)
@@ -57,7 +57,7 @@ class DioClient {
 }
 
 /// Singleton Dio provider
-final dioClientProvider = Provider<DioClient>((_) => DioClient._());
+final dioClientProvider = Provider<DioClient>((ref) => DioClient._(ref));
 
 /// Direct Dio instance provider (used by Retrofit-generated clients)
 final dioProvider = Provider<Dio>((ref) => ref.watch(dioClientProvider).dio);

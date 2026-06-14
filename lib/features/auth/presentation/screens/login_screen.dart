@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/theme/app_dimensions.dart';
+import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
-import '../../../../router/route_names.dart';
+import '../../../../shared/widgets/tretech_logo.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -24,9 +25,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
-  late AnimationController _animCtrl;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+  late final AnimationController _animCtrl;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
 
   @override
   void initState() {
@@ -35,10 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fadeAnim = CurvedAnimation(
-      parent: _animCtrl,
-      curve: Curves.easeOut,
-    );
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
@@ -59,27 +57,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Future<void> _onLogin() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(authProvider.notifier).login(
-          _emailCtrl.text.trim(),
-          _passwordCtrl.text,
-        );
+
+    await ref
+        .read(authProvider.notifier)
+        .login(_emailCtrl.text.trim(), _passwordCtrl.text);
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
-    // Navigate on success
-    ref.listen<AuthState>(authProvider, (_, next) {
-      if (next.status == AuthStatus.authenticated) {
-        context.go(RouteNames.dashboard);
-      }
-    });
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
+        decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
+
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -92,45 +84,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 child: SlideTransition(
                   position: _slideAnim,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
+                    constraints: const BoxConstraints(maxWidth: 420),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Logo ─────────────────────────────────
                         Center(
                           child: Column(
                             children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      AppColors.primary,
-                                      AppColors.primaryDark,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.25),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'T',
-                                    style: TextStyle(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
+                              const TretechLogo(
+                                frameSize: 88,
+                                logoSize: 58,
+                                radius: 24,
                               ),
                               const SizedBox(height: AppDimensions.spaceLg),
                               Text(
@@ -144,10 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ],
                           ),
                         ),
-
                         const SizedBox(height: AppDimensions.space4xl),
-
-                        // ── Welcome text ─────────────────────────
                         Text(
                           'Welcome back',
                           style: AppTextStyles.headlineMedium,
@@ -159,10 +120,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             color: AppColors.textSecondary,
                           ),
                         ),
-
                         const SizedBox(height: AppDimensions.space3xl),
-
-                        // ── Form ──────────────────────────────────
                         Form(
                           key: _formKey,
                           child: Column(
@@ -176,26 +134,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 keyboardType: TextInputType.emailAddress,
                                 textInputAction: TextInputAction.next,
                                 autofillHints: const [AutofillHints.email],
-                                onSubmitted: (_) => _passwordFocus.requestFocus(),
+                                onSubmitted: (_) =>
+                                    _passwordFocus.requestFocus(),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Email is required';
                                   }
-                                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                                      .hasMatch(value)) {
+                                  if (!RegExp(
+                                    r'^[^@]+@[^@]+\.[^@]+',
+                                  ).hasMatch(value)) {
                                     return 'Enter a valid email address';
                                   }
                                   return null;
                                 },
                               ),
-
                               const SizedBox(height: AppDimensions.spaceXl),
-
                               AppTextField(
                                 controller: _passwordCtrl,
                                 focusNode: _passwordFocus,
                                 label: 'Password',
-                                hint: '••••••••',
+                                hint: '........',
                                 prefixIcon: Icons.lock_outline_rounded,
                                 obscureText: true,
                                 textInputAction: TextInputAction.done,
@@ -205,14 +163,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   if (value == null || value.isEmpty) {
                                     return 'Password is required';
                                   }
-                                  if (value.length < 6) {
-                                    return 'Password must be at least 6 characters';
+                                  if (value.length < 8) {
+                                    return 'Password must be at least 8 characters';
                                   }
                                   return null;
                                 },
                               ),
+                              const SizedBox(height: AppDimensions.spaceSm),
+                              Row(
+                                children: [
+                                  Transform.translate(
+                                    offset: const Offset(-10, 0),
+                                    child: Checkbox(
+                                      value: authState.rememberMe,
+                                      onChanged: (value) {
+                                        ref
+                                            .read(authProvider.notifier)
+                                            .setRememberMe(value ?? false);
+                                      },
+                                      activeColor: AppColors.primary,
+                                      checkColor: AppColors.onPrimary,
 
-                              // ── Error message ─────────────────
+                                      side: BorderSide(
+                                        color: AppColors.border,
+                                      ),
+
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      'Remember me',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        context.push(RouteNames.forgotPassword),
+                                    child: const Text('Forgot password?'),
+                                  ),
+                                ],
+                              ),
                               if (authState.status == AuthStatus.error &&
                                   authState.error != null) ...[
                                 const SizedBox(height: AppDimensions.spaceMd),
@@ -227,33 +219,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       AppDimensions.radiusMd,
                                     ),
                                     border: Border.all(
-                                      color: AppColors.error.withValues(alpha: 0.3),
+                                      color: AppColors.error.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                   ),
                                   child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(
-                                        Icons.error_outline_rounded,
-                                        size: 16,
-                                        color: AppColors.error,
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 1),
+                                        child: Icon(
+                                          Icons.error_outline_rounded,
+                                          size: 16,
+                                          color: AppColors.error,
+                                        ),
                                       ),
-                                      const SizedBox(width: AppDimensions.spaceSm),
+
+                                      const SizedBox(
+                                        width: AppDimensions.spaceSm,
+                                      ),
                                       Expanded(
                                         child: Text(
                                           authState.error!,
-                                          style: AppTextStyles.bodySmall.copyWith(
-                                            color: AppColors.error,
-                                          ),
+                                          style: AppTextStyles.bodySmall
+                                              .copyWith(color: AppColors.error),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ],
-
                               const SizedBox(height: AppDimensions.space3xl),
-
-                              // ── Login Button ──────────────────
                               AppButton(
                                 label: 'Sign In',
                                 onPressed: _onLogin,
@@ -263,10 +261,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ],
                           ),
                         ),
-
                         const SizedBox(height: AppDimensions.spaceXxl),
-
-                        // ── Footer ────────────────────────────────
                         Center(
                           child: Text(
                             'Tretech Warehouse Management v1.0.0\nFor support contact your system administrator',

@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AuthResponse {
 
- String get token; String get tokenType; UserModel get user;
+@JsonKey(readValue: _readToken, fromJson: _tokenFromJson) String get token;@JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson) String get tokenType; UserModel get user;
 /// Create a copy of AuthResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $AuthResponseCopyWith<$Res>  {
   factory $AuthResponseCopyWith(AuthResponse value, $Res Function(AuthResponse) _then) = _$AuthResponseCopyWithImpl;
 @useResult
 $Res call({
- String token, String tokenType, UserModel user
+@JsonKey(readValue: _readToken, fromJson: _tokenFromJson) String token,@JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson) String tokenType, UserModel user
 });
 
 
@@ -164,7 +164,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String token,  String tokenType,  UserModel user)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(readValue: _readToken, fromJson: _tokenFromJson)  String token, @JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson)  String tokenType,  UserModel user)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AuthResponse() when $default != null:
 return $default(_that.token,_that.tokenType,_that.user);case _:
@@ -185,7 +185,7 @@ return $default(_that.token,_that.tokenType,_that.user);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String token,  String tokenType,  UserModel user)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(readValue: _readToken, fromJson: _tokenFromJson)  String token, @JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson)  String tokenType,  UserModel user)  $default,) {final _that = this;
 switch (_that) {
 case _AuthResponse():
 return $default(_that.token,_that.tokenType,_that.user);case _:
@@ -205,7 +205,7 @@ return $default(_that.token,_that.tokenType,_that.user);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String token,  String tokenType,  UserModel user)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(readValue: _readToken, fromJson: _tokenFromJson)  String token, @JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson)  String tokenType,  UserModel user)?  $default,) {final _that = this;
 switch (_that) {
 case _AuthResponse() when $default != null:
 return $default(_that.token,_that.tokenType,_that.user);case _:
@@ -220,11 +220,11 @@ return $default(_that.token,_that.tokenType,_that.user);case _:
 @JsonSerializable()
 
 class _AuthResponse implements AuthResponse {
-  const _AuthResponse({required this.token, this.tokenType = 'Bearer', required this.user});
+  const _AuthResponse({@JsonKey(readValue: _readToken, fromJson: _tokenFromJson) required this.token, @JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson) required this.tokenType, required this.user});
   factory _AuthResponse.fromJson(Map<String, dynamic> json) => _$AuthResponseFromJson(json);
 
-@override final  String token;
-@override@JsonKey() final  String tokenType;
+@override@JsonKey(readValue: _readToken, fromJson: _tokenFromJson) final  String token;
+@override@JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson) final  String tokenType;
 @override final  UserModel user;
 
 /// Create a copy of AuthResponse
@@ -260,7 +260,7 @@ abstract mixin class _$AuthResponseCopyWith<$Res> implements $AuthResponseCopyWi
   factory _$AuthResponseCopyWith(_AuthResponse value, $Res Function(_AuthResponse) _then) = __$AuthResponseCopyWithImpl;
 @override @useResult
 $Res call({
- String token, String tokenType, UserModel user
+@JsonKey(readValue: _readToken, fromJson: _tokenFromJson) String token,@JsonKey(readValue: _readTokenType, fromJson: _tokenTypeFromJson) String tokenType, UserModel user
 });
 
 
@@ -302,7 +302,7 @@ $UserModelCopyWith<$Res> get user {
 /// @nodoc
 mixin _$UserModel {
 
- int get id; String get name; String get email; String? get phone; String? get avatar; String? get role; List<String> get permissions;@JsonKey(name: 'created_at') DateTime? get createdAt;@JsonKey(name: 'updated_at') DateTime? get updatedAt;
+@JsonKey(fromJson: _idFromJson) int get id;@JsonKey(readValue: _readName, fromJson: _nameFromJson) String get name;@JsonKey(readValue: _readEmail, fromJson: _emailFromJson) String get email;@JsonKey(fromJson: _nullableStringFromJson) String? get phone;@JsonKey(fromJson: _nullableStringFromJson) String? get avatar;@JsonKey(fromJson: _nullableStringFromJson) String? get role;@JsonKey(fromJson: _stringListFromJson) List<String> get permissions;@JsonKey(name: 'created_at', fromJson: _dateTimeFromJson) DateTime? get createdAt;@JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson) DateTime? get updatedAt;
 /// Create a copy of UserModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -335,7 +335,7 @@ abstract mixin class $UserModelCopyWith<$Res>  {
   factory $UserModelCopyWith(UserModel value, $Res Function(UserModel) _then) = _$UserModelCopyWithImpl;
 @useResult
 $Res call({
- int id, String name, String email, String? phone, String? avatar, String? role, List<String> permissions,@JsonKey(name: 'created_at') DateTime? createdAt,@JsonKey(name: 'updated_at') DateTime? updatedAt
+@JsonKey(fromJson: _idFromJson) int id,@JsonKey(readValue: _readName, fromJson: _nameFromJson) String name,@JsonKey(readValue: _readEmail, fromJson: _emailFromJson) String email,@JsonKey(fromJson: _nullableStringFromJson) String? phone,@JsonKey(fromJson: _nullableStringFromJson) String? avatar,@JsonKey(fromJson: _nullableStringFromJson) String? role,@JsonKey(fromJson: _stringListFromJson) List<String> permissions,@JsonKey(name: 'created_at', fromJson: _dateTimeFromJson) DateTime? createdAt,@JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson) DateTime? updatedAt
 });
 
 
@@ -448,7 +448,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String name,  String email,  String? phone,  String? avatar,  String? role,  List<String> permissions, @JsonKey(name: 'created_at')  DateTime? createdAt, @JsonKey(name: 'updated_at')  DateTime? updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(fromJson: _idFromJson)  int id, @JsonKey(readValue: _readName, fromJson: _nameFromJson)  String name, @JsonKey(readValue: _readEmail, fromJson: _emailFromJson)  String email, @JsonKey(fromJson: _nullableStringFromJson)  String? phone, @JsonKey(fromJson: _nullableStringFromJson)  String? avatar, @JsonKey(fromJson: _nullableStringFromJson)  String? role, @JsonKey(fromJson: _stringListFromJson)  List<String> permissions, @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson)  DateTime? createdAt, @JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson)  DateTime? updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserModel() when $default != null:
 return $default(_that.id,_that.name,_that.email,_that.phone,_that.avatar,_that.role,_that.permissions,_that.createdAt,_that.updatedAt);case _:
@@ -469,7 +469,7 @@ return $default(_that.id,_that.name,_that.email,_that.phone,_that.avatar,_that.r
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String name,  String email,  String? phone,  String? avatar,  String? role,  List<String> permissions, @JsonKey(name: 'created_at')  DateTime? createdAt, @JsonKey(name: 'updated_at')  DateTime? updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(fromJson: _idFromJson)  int id, @JsonKey(readValue: _readName, fromJson: _nameFromJson)  String name, @JsonKey(readValue: _readEmail, fromJson: _emailFromJson)  String email, @JsonKey(fromJson: _nullableStringFromJson)  String? phone, @JsonKey(fromJson: _nullableStringFromJson)  String? avatar, @JsonKey(fromJson: _nullableStringFromJson)  String? role, @JsonKey(fromJson: _stringListFromJson)  List<String> permissions, @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson)  DateTime? createdAt, @JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson)  DateTime? updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _UserModel():
 return $default(_that.id,_that.name,_that.email,_that.phone,_that.avatar,_that.role,_that.permissions,_that.createdAt,_that.updatedAt);case _:
@@ -489,7 +489,7 @@ return $default(_that.id,_that.name,_that.email,_that.phone,_that.avatar,_that.r
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String name,  String email,  String? phone,  String? avatar,  String? role,  List<String> permissions, @JsonKey(name: 'created_at')  DateTime? createdAt, @JsonKey(name: 'updated_at')  DateTime? updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(fromJson: _idFromJson)  int id, @JsonKey(readValue: _readName, fromJson: _nameFromJson)  String name, @JsonKey(readValue: _readEmail, fromJson: _emailFromJson)  String email, @JsonKey(fromJson: _nullableStringFromJson)  String? phone, @JsonKey(fromJson: _nullableStringFromJson)  String? avatar, @JsonKey(fromJson: _nullableStringFromJson)  String? role, @JsonKey(fromJson: _stringListFromJson)  List<String> permissions, @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson)  DateTime? createdAt, @JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson)  DateTime? updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _UserModel() when $default != null:
 return $default(_that.id,_that.name,_that.email,_that.phone,_that.avatar,_that.role,_that.permissions,_that.createdAt,_that.updatedAt);case _:
@@ -504,24 +504,24 @@ return $default(_that.id,_that.name,_that.email,_that.phone,_that.avatar,_that.r
 @JsonSerializable()
 
 class _UserModel implements UserModel {
-  const _UserModel({required this.id, required this.name, required this.email, this.phone, this.avatar, this.role, final  List<String> permissions = const [], @JsonKey(name: 'created_at') this.createdAt, @JsonKey(name: 'updated_at') this.updatedAt}): _permissions = permissions;
+  const _UserModel({@JsonKey(fromJson: _idFromJson) required this.id, @JsonKey(readValue: _readName, fromJson: _nameFromJson) required this.name, @JsonKey(readValue: _readEmail, fromJson: _emailFromJson) required this.email, @JsonKey(fromJson: _nullableStringFromJson) this.phone, @JsonKey(fromJson: _nullableStringFromJson) this.avatar, @JsonKey(fromJson: _nullableStringFromJson) this.role, @JsonKey(fromJson: _stringListFromJson) required final  List<String> permissions, @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson) this.createdAt, @JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson) this.updatedAt}): _permissions = permissions;
   factory _UserModel.fromJson(Map<String, dynamic> json) => _$UserModelFromJson(json);
 
-@override final  int id;
-@override final  String name;
-@override final  String email;
-@override final  String? phone;
-@override final  String? avatar;
-@override final  String? role;
+@override@JsonKey(fromJson: _idFromJson) final  int id;
+@override@JsonKey(readValue: _readName, fromJson: _nameFromJson) final  String name;
+@override@JsonKey(readValue: _readEmail, fromJson: _emailFromJson) final  String email;
+@override@JsonKey(fromJson: _nullableStringFromJson) final  String? phone;
+@override@JsonKey(fromJson: _nullableStringFromJson) final  String? avatar;
+@override@JsonKey(fromJson: _nullableStringFromJson) final  String? role;
  final  List<String> _permissions;
-@override@JsonKey() List<String> get permissions {
+@override@JsonKey(fromJson: _stringListFromJson) List<String> get permissions {
   if (_permissions is EqualUnmodifiableListView) return _permissions;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_permissions);
 }
 
-@override@JsonKey(name: 'created_at') final  DateTime? createdAt;
-@override@JsonKey(name: 'updated_at') final  DateTime? updatedAt;
+@override@JsonKey(name: 'created_at', fromJson: _dateTimeFromJson) final  DateTime? createdAt;
+@override@JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson) final  DateTime? updatedAt;
 
 /// Create a copy of UserModel
 /// with the given fields replaced by the non-null parameter values.
@@ -556,7 +556,7 @@ abstract mixin class _$UserModelCopyWith<$Res> implements $UserModelCopyWith<$Re
   factory _$UserModelCopyWith(_UserModel value, $Res Function(_UserModel) _then) = __$UserModelCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String name, String email, String? phone, String? avatar, String? role, List<String> permissions,@JsonKey(name: 'created_at') DateTime? createdAt,@JsonKey(name: 'updated_at') DateTime? updatedAt
+@JsonKey(fromJson: _idFromJson) int id,@JsonKey(readValue: _readName, fromJson: _nameFromJson) String name,@JsonKey(readValue: _readEmail, fromJson: _emailFromJson) String email,@JsonKey(fromJson: _nullableStringFromJson) String? phone,@JsonKey(fromJson: _nullableStringFromJson) String? avatar,@JsonKey(fromJson: _nullableStringFromJson) String? role,@JsonKey(fromJson: _stringListFromJson) List<String> permissions,@JsonKey(name: 'created_at', fromJson: _dateTimeFromJson) DateTime? createdAt,@JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson) DateTime? updatedAt
 });
 
 
@@ -595,7 +595,7 @@ as DateTime?,
 /// @nodoc
 mixin _$LoginRequest {
 
- String get email; String get password; String get deviceName;
+ String get email; String get password;@JsonKey(name: 'device_name') String get deviceName;
 /// Create a copy of LoginRequest
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -628,7 +628,7 @@ abstract mixin class $LoginRequestCopyWith<$Res>  {
   factory $LoginRequestCopyWith(LoginRequest value, $Res Function(LoginRequest) _then) = _$LoginRequestCopyWithImpl;
 @useResult
 $Res call({
- String email, String password, String deviceName
+ String email, String password,@JsonKey(name: 'device_name') String deviceName
 });
 
 
@@ -735,7 +735,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String email,  String password,  String deviceName)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String email,  String password, @JsonKey(name: 'device_name')  String deviceName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LoginRequest() when $default != null:
 return $default(_that.email,_that.password,_that.deviceName);case _:
@@ -756,7 +756,7 @@ return $default(_that.email,_that.password,_that.deviceName);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String email,  String password,  String deviceName)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String email,  String password, @JsonKey(name: 'device_name')  String deviceName)  $default,) {final _that = this;
 switch (_that) {
 case _LoginRequest():
 return $default(_that.email,_that.password,_that.deviceName);case _:
@@ -776,7 +776,7 @@ return $default(_that.email,_that.password,_that.deviceName);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String email,  String password,  String deviceName)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String email,  String password, @JsonKey(name: 'device_name')  String deviceName)?  $default,) {final _that = this;
 switch (_that) {
 case _LoginRequest() when $default != null:
 return $default(_that.email,_that.password,_that.deviceName);case _:
@@ -791,12 +791,12 @@ return $default(_that.email,_that.password,_that.deviceName);case _:
 @JsonSerializable()
 
 class _LoginRequest implements LoginRequest {
-  const _LoginRequest({required this.email, required this.password, this.deviceName = 'mobile'});
+  const _LoginRequest({required this.email, required this.password, @JsonKey(name: 'device_name') this.deviceName = 'mobile'});
   factory _LoginRequest.fromJson(Map<String, dynamic> json) => _$LoginRequestFromJson(json);
 
 @override final  String email;
 @override final  String password;
-@override@JsonKey() final  String deviceName;
+@override@JsonKey(name: 'device_name') final  String deviceName;
 
 /// Create a copy of LoginRequest
 /// with the given fields replaced by the non-null parameter values.
@@ -831,7 +831,7 @@ abstract mixin class _$LoginRequestCopyWith<$Res> implements $LoginRequestCopyWi
   factory _$LoginRequestCopyWith(_LoginRequest value, $Res Function(_LoginRequest) _then) = __$LoginRequestCopyWithImpl;
 @override @useResult
 $Res call({
- String email, String password, String deviceName
+ String email, String password,@JsonKey(name: 'device_name') String deviceName
 });
 
 

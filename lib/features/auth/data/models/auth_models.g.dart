@@ -8,8 +8,8 @@ part of 'auth_models.dart';
 
 _AuthResponse _$AuthResponseFromJson(Map<String, dynamic> json) =>
     _AuthResponse(
-      token: json['token'] as String,
-      tokenType: json['tokenType'] as String? ?? 'Bearer',
+      token: _tokenFromJson(_readToken(json, 'token')),
+      tokenType: _tokenTypeFromJson(_readTokenType(json, 'tokenType')),
       user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
     );
 
@@ -21,23 +21,15 @@ Map<String, dynamic> _$AuthResponseToJson(_AuthResponse instance) =>
     };
 
 _UserModel _$UserModelFromJson(Map<String, dynamic> json) => _UserModel(
-  id: (json['id'] as num).toInt(),
-  name: json['name'] as String,
-  email: json['email'] as String,
-  phone: json['phone'] as String?,
-  avatar: json['avatar'] as String?,
-  role: json['role'] as String?,
-  permissions:
-      (json['permissions'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ??
-      const [],
-  createdAt: json['created_at'] == null
-      ? null
-      : DateTime.parse(json['created_at'] as String),
-  updatedAt: json['updated_at'] == null
-      ? null
-      : DateTime.parse(json['updated_at'] as String),
+  id: _idFromJson(json['id']),
+  name: _nameFromJson(_readName(json, 'name')),
+  email: _emailFromJson(_readEmail(json, 'email')),
+  phone: _nullableStringFromJson(json['phone']),
+  avatar: _nullableStringFromJson(json['avatar']),
+  role: _nullableStringFromJson(json['role']),
+  permissions: _stringListFromJson(json['permissions']),
+  createdAt: _dateTimeFromJson(json['created_at']),
+  updatedAt: _dateTimeFromJson(json['updated_at']),
 );
 
 Map<String, dynamic> _$UserModelToJson(_UserModel instance) =>
@@ -57,12 +49,12 @@ _LoginRequest _$LoginRequestFromJson(Map<String, dynamic> json) =>
     _LoginRequest(
       email: json['email'] as String,
       password: json['password'] as String,
-      deviceName: json['deviceName'] as String? ?? 'mobile',
+      deviceName: json['device_name'] as String? ?? 'mobile',
     );
 
 Map<String, dynamic> _$LoginRequestToJson(_LoginRequest instance) =>
     <String, dynamic>{
       'email': instance.email,
       'password': instance.password,
-      'deviceName': instance.deviceName,
+      'device_name': instance.deviceName,
     };

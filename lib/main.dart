@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'router/app_router.dart';
+import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
+import 'shared/theme/theme_mode_provider.dart';
 import 'core/constants/app_constants.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,12 +46,30 @@ class TretechApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(themeModeProvider);
+
+    // Resolve the effective brightness so the runtime AppColors getters
+    // (read inside screen widgets) match the ThemeData we hand to MaterialApp.
+    final platformBrightness =
+        MediaQuery.platformBrightnessOf(context);
+    final effectiveBrightness = switch (themeMode) {
+      ThemeMode.light => Brightness.light,
+      ThemeMode.dark => Brightness.dark,
+      ThemeMode.system => platformBrightness,
+    };
+    final isDark = effectiveBrightness == Brightness.dark;
+
+    // Build the matching theme. _build() also sets AppColors.brightness, but
+    // set it here too so it is correct even before the first frame paints.
+    AppColors.brightness = effectiveBrightness;
+    final theme = isDark ? AppTheme.dark : AppTheme.light;
 
     return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: theme,
       routerConfig: router,
     );
   }
 }
+

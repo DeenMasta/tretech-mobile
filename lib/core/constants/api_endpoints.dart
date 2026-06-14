@@ -1,51 +1,54 @@
 /// All Laravel API endpoint paths.
 /// Base URL is injected via --dart-define=API_BASE_URL=...
-/// or falls back to the staging URL.
+/// or falls back to the default URL.
 abstract final class ApiEndpoints {
   // ── Base ──────────────────────────────────────────────────────
-  static const String _base = '/api';
+  static const String _base = '/api/v1';
 
-  // ── Auth (Laravel Sanctum) ───────────────────────────────────
+  // ── Dashboard ─────────────────────────────────────────────────
+  static const String dashboardSummary = '$_base/dashboard/summary';
+
+  // ── Auth ──────────────────────────────────────────────────────
   static const String login = '$_base/auth/login';
   static const String logout = '$_base/auth/logout';
   static const String me = '$_base/auth/me';
-  static const String refreshToken = '$_base/auth/refresh';
+  static const String permissions = '$_base/auth/permissions';
 
-  // ── Dashboard ─────────────────────────────────────────────────
-  static const String dashboardKpi = '$_base/dashboard/kpi';
-  static const String dashboardAlerts = '$_base/dashboard/alerts';
+  // ── Inventory / Ledger ───────────────────────────────────────
+  static const String inventoryUnits = '$_base/inventory-units';
+  static const String inventorySummary = '$_base/inventory-units/summary';
+  static const String inventoryExpiringSoon = '$_base/inventory-units/expiring-soon';
+  static const String inventoryLedger = '$_base/inventory-ledger';
+  static const String holdingArea = '$_base/holding-area';
 
   // ── Stock In ──────────────────────────────────────────────────
-  static const String stockIn = '$_base/stock-in';
-  static const String stockInCreate = '$_base/stock-in/create';
-  static const String stockInDetail = '$_base/stock-in/{id}';
-
-  // ── Inventory ─────────────────────────────────────────────────
-  static const String inventory = '$_base/inventory';
-  static const String inventoryDetail = '$_base/inventory/{id}';
-  static const String inventorySearch = '$_base/inventory/search';
-
-  // ── QR Printing ───────────────────────────────────────────────
-  static const String qrPrint = '$_base/qr/print';
-  static const String qrBatchPrint = '$_base/qr/batch-print';
-
-  // ── Consignment ───────────────────────────────────────────────
-  static const String consignment = '$_base/consignment';
-  static const String consignmentCreate = '$_base/consignment/create';
-  static const String consignmentDetail = '$_base/consignment/{id}';
+  static const String stockInSessions = '$_base/stock-in-sessions';
 
   // ── Returns ───────────────────────────────────────────────────
-  static const String returns = '$_base/returns';
-  static const String returnsCreate = '$_base/returns/create';
-  static const String returnsDetail = '$_base/returns/{id}';
+  static const String returnSessions = '$_base/return-sessions';
 
-  // ── Disposal ─────────────────────────────────────────────────
-  static const String disposal = '$_base/disposal';
-  static const String disposalCreate = '$_base/disposal/create';
-  static const String disposalDetail = '$_base/disposal/{id}';
+  // ── Consignments ──────────────────────────────────────────────
+  static const String consignments = '$_base/consignments';
+
+  // ── Disposals ─────────────────────────────────────────────────
+  static const String disposals = '$_base/disposals';
+
+  // ── Supplier Returns ──────────────────────────────────────────
+  static const String supplierReturns = '$_base/supplier-returns';
+
+  // ── Reconciliations ───────────────────────────────────────────
+  static const String reconciliations = '$_base/reconciliations';
 
   // ── Helpers ───────────────────────────────────────────────────
-  /// Replace a path parameter, e.g. [stockInDetail] with id
+  /// Replace a path parameter, e.g. /inventory-units/{id} with actual id
   static String withId(String path, dynamic id) =>
       path.replaceFirst('{id}', id.toString());
+
+  /// Replace a lot number, e.g. /inventory-units/lookup/by-lot/{lotNumber}
+  static String withLot(String path, String lotNumber) =>
+      path.replaceFirst('{lotNumber}', lotNumber);
+
+  /// Replace a reference number, e.g. /inventory-units/lookup/by-ref/{refNum}
+  static String withRef(String path, String refNum) =>
+      path.replaceFirst('{refNum}', refNum);
 }

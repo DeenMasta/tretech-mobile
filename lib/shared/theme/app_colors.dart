@@ -1,84 +1,96 @@
 import 'package:flutter/material.dart';
 
-/// Tretech design system — color palette
-/// Dark charcoal enterprise theme with emerald green accents
+/// Tretech design system — color palette.
+///
+/// Mirrors the Tretech web app (shadcn / zinc neutral system) with full
+/// light + dark support. All values are exposed as runtime getters that
+/// resolve against [AppColors.brightness], so existing `AppColors.x`
+/// call sites keep working while the whole app re-themes on mode change.
+///
+/// The active brightness is kept in sync with the rendered [ThemeData]
+/// by the root widget (see `main.dart`) before each frame builds.
 abstract final class AppColors {
+  /// Active brightness driving every color getter below.
+  static Brightness brightness = Brightness.dark;
+
+  static bool get _isDark => brightness == Brightness.dark;
+
+  /// Picks the right value for the active brightness.
+  static Color _pick(Color light, Color dark) => _isDark ? dark : light;
+
   // ── Backgrounds ──────────────────────────────────────────────
-  static const Color background = Color(0xFF0F1117);
-  static const Color surface = Color(0xFF1C1F26);
-  static const Color surfaceElevated = Color(0xFF252A33);
-  static const Color surfaceHighest = Color(0xFF2D3341);
+  // light: --background #fff / --card #f4f4f5
+  // dark:  --background #09090b / --card #18181b
+  static Color get background => _pick(const Color(0xFFFFFFFF), const Color(0xFF09090B));
+  static Color get surface => _pick(const Color(0xFFF4F4F5), const Color(0xFF18181B));
+  static Color get surfaceElevated => _pick(const Color(0xFFFFFFFF), const Color(0xFF27272A));
+  static Color get surfaceHighest => _pick(const Color(0xFFE4E4E7), const Color(0xFF3F3F46));
 
   // ── Sidebar ───────────────────────────────────────────────────
-  static const Color sidebarBg = Color(0xFF13161D);
-  static const Color sidebarItemHover = Color(0xFF1E2330);
-  static const Color sidebarItemActive = Color(0xFF1A3A2F);
+  // light: --sidebar #fafafa  dark: #09090b
+  static Color get sidebarBg => _pick(const Color(0xFFFAFAFA), const Color(0xFF09090B));
+  static Color get sidebarItemHover => _pick(const Color(0xFFF4F4F5), const Color(0xFF18181B));
+  static Color get sidebarItemActive => _pick(const Color(0xFFE4E4E7), const Color(0xFF27272A));
 
-  // ── Primary — Emerald Green ───────────────────────────────────
-  static const Color primary = Color(0xFF10B981);
-  static const Color primaryLight = Color(0xFF34D399);
-  static const Color primaryDark = Color(0xFF059669);
-  static const Color primaryContainer = Color(0xFF0D2B22);
+  // ── Primary — monochrome (near-black in light, near-white in dark) ──
+  // light: --primary #18181b / --primary-foreground #fafafa
+  // dark:  --primary #fafafa / --primary-foreground #09090b
+  static Color get primary => _pick(const Color(0xFF18181B), const Color(0xFFFAFAFA));
+  static Color get onPrimary => _pick(const Color(0xFFFAFAFA), const Color(0xFF09090B));
+  static Color get primaryLight => _pick(const Color(0xFF3F3F46), const Color(0xFFE4E4E7));
+  static Color get primaryDark => _pick(const Color(0xFF09090B), const Color(0xFFFFFFFF));
+  static Color get primaryContainer => _pick(const Color(0xFFE4E4E7), const Color(0xFF27272A));
 
-  // ── Accent — Electric Teal ────────────────────────────────────
-  static const Color accent = Color(0xFF06B6D4);
-  static const Color accentContainer = Color(0xFF0B2D34);
+  // ── Accent — secondary/muted zinc surface ─────────────────────
+  static Color get accent => _pick(const Color(0xFF18181B), const Color(0xFFFAFAFA));
+  static Color get accentContainer => _pick(const Color(0xFFF4F4F5), const Color(0xFF27272A));
 
   // ── Status ───────────────────────────────────────────────────
-  static const Color success = Color(0xFF22C55E);
-  static const Color successContainer = Color(0xFF0F2A1A);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningContainer = Color(0xFF2D2209);
-  static const Color error = Color(0xFFEF4444);
-  static const Color errorContainer = Color(0xFF2D1111);
-  static const Color info = Color(0xFF3B82F6);
-  static const Color infoContainer = Color(0xFF111D3D);
+  static Color get success => _pick(const Color(0xFF16A34A), const Color(0xFF22C55E));
+  static Color get successContainer => _pick(const Color(0xFFDCFCE7), const Color(0xFF0F2A1A));
+  static Color get warning => _pick(const Color(0xFFD97706), const Color(0xFFF59E0B));
+  static Color get warningContainer => _pick(const Color(0xFFFEF3C7), const Color(0xFF2D2209));
+  // destructive — light: hsl(0 84% 60%) / dark: hsl(0 63% 31%)
+  static Color get error => _pick(const Color(0xFFEF4444), const Color(0xFFEF4444));
+  static Color get errorContainer => _pick(const Color(0xFFFEE2E2), const Color(0xFF3F1D1D));
+  static Color get info => _pick(const Color(0xFF2563EB), const Color(0xFF3B82F6));
+  static Color get infoContainer => _pick(const Color(0xFFDBEAFE), const Color(0xFF111D3D));
 
   // ── Typography ───────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
-  static const Color textDisabled = Color(0xFF3F4758);
+  // light: --foreground #09090b / muted-foreground #71717a (zinc-500)
+  // dark:  --foreground #fafafa / muted-foreground #a1a1aa (zinc-400)
+  static Color get textPrimary => _pick(const Color(0xFF09090B), const Color(0xFFFAFAFA));
+  static Color get textSecondary => _pick(const Color(0xFF52525B), const Color(0xFFA1A1AA));
+  static Color get textMuted => _pick(const Color(0xFF71717A), const Color(0xFF71717A));
+  static Color get textDisabled => _pick(const Color(0xFFA1A1AA), const Color(0xFF52525B));
 
   // ── Borders & Dividers ───────────────────────────────────────
-  static const Color border = Color(0xFF1E2736);
-  static const Color borderFocus = Color(0xFF10B981);
-  static const Color divider = Color(0xFF1A2030);
+  // --border / --input: light #e4e4e7  dark #27272a
+  static Color get border => _pick(const Color(0xFFE4E4E7), const Color(0xFF27272A));
+  static Color get borderFocus => _pick(const Color(0xFF18181B), const Color(0xFFFAFAFA));
+  static Color get divider => _pick(const Color(0xFFE4E4E7), const Color(0xFF27272A));
 
-  // ── Card Gradients ───────────────────────────────────────────
-  static const LinearGradient cardGradientGreen = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF0D2B22), Color(0xFF1C1F26)],
-  );
+  // ── Card / surface gradients (neutral, monochrome) ───────────
+  static LinearGradient get _neutralCard => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [surfaceElevated, surface],
+      );
 
-  static const LinearGradient cardGradientBlue = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF111D3D), Color(0xFF1C1F26)],
-  );
+  static LinearGradient get cardGradientGreen => _neutralCard;
+  static LinearGradient get cardGradientBlue => _neutralCard;
+  static LinearGradient get cardGradientOrange => _neutralCard;
+  static LinearGradient get cardGradientRed => _neutralCard;
 
-  static const LinearGradient cardGradientOrange = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF2D1E09), Color(0xFF1C1F26)],
-  );
+  static LinearGradient get sidebarGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [sidebarBg, background],
+      );
 
-  static const LinearGradient cardGradientRed = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF2D1111), Color(0xFF1C1F26)],
-  );
-
-  static const LinearGradient sidebarGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF13161D), Color(0xFF0F1117)],
-  );
-
-  static const LinearGradient backgroundGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF0F1117), Color(0xFF111520)],
-  );
+  static LinearGradient get backgroundGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [background, surface],
+      );
 }

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.tretech" "\0"
-            VALUE "FileDescription", "tretech_mobile" "\0"
+            VALUE "FileDescription", "Tretech" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "tretech_mobile" "\0"
+            VALUE "InternalName", "Tretech" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.tretech. All rights reserved." "\0"
             VALUE "OriginalFilename", "tretech_mobile.exe" "\0"
-            VALUE "ProductName", "tretech_mobile" "\0"
+            VALUE "ProductName", "Tretech" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -35,7 +35,7 @@ class LoadingOverlay extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 40,
                       height: 40,
                       child: CircularProgressIndicator(
@@ -43,6 +43,7 @@ class LoadingOverlay extends StatelessWidget {
                         color: AppColors.primary,
                       ),
                     ),
+
                     if (message != null) ...[
                       const SizedBox(height: AppDimensions.spaceLg),
                       Text(

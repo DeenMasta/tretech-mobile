@@ -2,6 +2,8 @@
 abstract final class RouteNames {
   static const String splash = '/';
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
+  static const String sessionExpired = '/session-expired';
   static const String dashboard = '/dashboard';
   static const String stockIn = '/stock-in';
   static const String stockInCreate = '/stock-in/create';
