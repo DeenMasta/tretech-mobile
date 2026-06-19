@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Tretech uses the camera to scan stock-in barcodes and QR codes.</string>
 </dict>
 </plist>

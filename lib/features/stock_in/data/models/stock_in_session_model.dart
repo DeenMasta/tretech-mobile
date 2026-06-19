@@ -111,7 +111,7 @@ class StockInSessionModel {
   final DateTime? updatedAt;
 
   bool get isDraft => status == 'draft';
-  bool get isConfirmed => status == 'confirmed';
+  bool get isConfirmed => status == 'confirmed' || status == 'finalized';
 
   String get supplierName => supplier?.supplierName ?? '—';
   String get picUserName => picUser?.fullName ?? '—';

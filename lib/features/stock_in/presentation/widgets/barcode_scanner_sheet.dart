@@ -6,10 +6,6 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 
-/// A bottom-sheet barcode scanner with manual-entry fallback.
-///
-/// Returns the scanned/typed value, plus a flag indicating whether the
-/// value was entered manually so the caller can flag manual audit logs.
 class BarcodeScanResult {
   const BarcodeScanResult({required this.value, required this.manual});
 
@@ -22,7 +18,7 @@ class BarcodeScannerSheet extends StatefulWidget {
     super.key,
     required this.title,
     required this.helperText,
-    this.manualLabel = 'Type manually',
+    this.manualLabel = 'Manual entry',
   });
 
   final String title;
@@ -52,29 +48,22 @@ class BarcodeScannerSheet extends StatefulWidget {
 }
 
 class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
-  final MobileScannerController _controller = MobileScannerController(
+  final TextEditingController _valueCtl = TextEditingController();
+  final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
+    torchEnabled: false,
   );
+
   bool _manual = false;
+  bool _flashEnabled = false;
   bool _handled = false;
-  final TextEditingController _manualCtl = TextEditingController();
 
   @override
   void dispose() {
-    _controller.dispose();
-    _manualCtl.dispose();
+    _scannerController.dispose();
+    _valueCtl.dispose();
     super.dispose();
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    if (_handled) return;
-    final value = capture.barcodes
-        .map((b) => b.rawValue ?? '')
-        .firstWhere((v) => v.isNotEmpty, orElse: () => '');
-    if (value.isEmpty) return;
-    _handled = true;
-    Navigator.of(context).pop(BarcodeScanResult(value: value, manual: false));
   }
 
   @override
@@ -104,19 +93,100 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
               Text(widget.title, style: AppTextStyles.titleMedium),
               const SizedBox(height: 4),
               Text(widget.helperText, style: AppTextStyles.bodySmall),
+              const SizedBox(height: AppDimensions.spaceSm),
+              Text(
+                _manual
+                    ? 'Type the value when the barcode is unavailable or unreadable.'
+                    : 'Aim the rear camera at the barcode or QR code.',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
               const SizedBox(height: AppDimensions.spaceLg),
-              if (_manual)
-                _buildManual()
-              else
-                _buildScanner(),
-              const SizedBox(height: AppDimensions.spaceLg),
+              if (_manual) ...[
+                AppTextField(
+                  controller: _valueCtl,
+                  label: 'Manual value',
+                  hint: 'Type the captured value',
+                  prefixIcon: Icons.keyboard_rounded,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: _submit,
+                ),
+                const SizedBox(height: AppDimensions.spaceMd),
+                AppButton(
+                  label: 'Confirm',
+                  icon: Icons.check_rounded,
+                  onPressed: () => _submit(_valueCtl.text),
+                ),
+              ] else ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        MobileScanner(
+                          controller: _scannerController,
+                          onDetect: _onDetect,
+                        ),
+                        IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.radiusLg,
+                              ),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 190,
+                                height: 190,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppColors.primary,
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppDimensions.radiusLg,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceMd),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        label: _flashEnabled ? 'Flash off' : 'Flash on',
+                        variant: AppButtonVariant.secondary,
+                        icon: _flashEnabled
+                            ? Icons.flash_off_rounded
+                            : Icons.flash_on_rounded,
+                        onPressed: _toggleTorch,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: AppDimensions.spaceSm),
               AppButton(
-                label: _manual ? 'Use camera' : widget.manualLabel,
+                label: _manual ? 'Use camera scanner' : widget.manualLabel,
                 variant: AppButtonVariant.ghost,
                 icon: _manual
                     ? Icons.qr_code_scanner_rounded
                     : Icons.keyboard_rounded,
-                onPressed: () => setState(() => _manual = !_manual),
+                onPressed: _toggleEntryMode,
               ),
             ],
           ),
@@ -125,55 +195,41 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
     );
   }
 
-  Widget _buildScanner() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-      child: SizedBox(
-        height: 280,
-        width: double.infinity,
-        child: MobileScanner(
-          controller: _controller,
-          onDetect: _onDetect,
-          errorBuilder: (_, error, __) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppDimensions.spaceLg),
-              child: Text(
-                'Camera unavailable: ${error.errorCode.name}.\nUse manual entry below.',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodySmall,
-              ),
-            ),
-          ),
-        ),
-      ),
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final barcode = capture.barcodes.cast<Barcode?>().firstWhere(
+      (item) => (item?.rawValue?.trim().isNotEmpty ?? false),
+      orElse: () => null,
     );
+    final value = barcode?.rawValue?.trim();
+    if (value == null || value.isEmpty) return;
+    _handled = true;
+    Navigator.of(context).pop(BarcodeScanResult(value: value, manual: false));
   }
 
-  Widget _buildManual() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AppTextField(
-          controller: _manualCtl,
-          label: 'Manual entry',
-          hint: 'Type or paste the value',
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          onSubmitted: _submitManual,
-        ),
-        const SizedBox(height: AppDimensions.spaceMd),
-        AppButton(
-          label: 'Confirm',
-          icon: Icons.check_rounded,
-          onPressed: () => _submitManual(_manualCtl.text),
-        ),
-      ],
-    );
+  Future<void> _toggleTorch() async {
+    await _scannerController.toggleTorch();
+    if (!mounted) return;
+    setState(() => _flashEnabled = !_flashEnabled);
   }
 
-  void _submitManual(String value) {
-    final v = value.trim();
-    if (v.isEmpty) return;
-    Navigator.of(context).pop(BarcodeScanResult(value: v, manual: true));
+  Future<void> _toggleEntryMode() async {
+    if (_manual) {
+      _handled = false;
+      await _scannerController.start();
+    } else {
+      await _scannerController.stop();
+      _valueCtl.clear();
+    }
+    if (!mounted) return;
+    setState(() => _manual = !_manual);
+  }
+
+  void _submit(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(BarcodeScanResult(value: trimmed, manual: true));
   }
 }

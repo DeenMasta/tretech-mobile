@@ -157,6 +157,9 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
 
   // ── Steps ────────────────────────────────────────────────────
   Widget _buildSteps(ItemDraft draft) {
+    final requiresLot = draft.requiresLot;
+    final lotSatisfied = draft.lotSatisfied;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -184,16 +187,22 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
         const SizedBox(height: AppDimensions.spaceSm),
         ScanStepCard(
           index: 2,
-          title: 'Scan lot number',
-          subtitle: draft.missingLotFlag
-              ? 'Lot flagged as missing — manual override active'
-              : 'Tap to scan the lot number on the package',
+          title: requiresLot ? 'Scan lot number' : 'Lot number not required',
+          subtitle: !requiresLot
+              ? 'This product does not require lot tracking. A lot will be generated during finalization.'
+              : draft.missingLotFlag
+                  ? 'Lot flagged as missing - manual override active'
+                  : 'Tap to scan the lot number on the package',
           icon: Icons.inventory_2_rounded,
-          completed: draft.hasLot,
-          active: draft.hasProduct && !draft.hasLot,
-          value: draft.scannedLotNumber,
-          onTap: draft.hasProduct ? _onScanLot : null,
-          trailing: draft.hasProduct
+          completed: draft.hasProduct && lotSatisfied,
+          active: draft.hasProduct && requiresLot && !draft.hasLot,
+          value: requiresLot
+              ? draft.scannedLotNumber
+              : draft.hasProduct
+                  ? 'Auto-generate on finalize'
+                  : null,
+          onTap: draft.hasProduct && requiresLot ? _onScanLot : null,
+          trailing: draft.hasProduct && requiresLot
               ? IconButton(
                   tooltip: draft.missingLotFlag
                       ? 'Clear missing-lot flag'
@@ -219,11 +228,11 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           subtitle: 'Scan expiry barcode or pick the date',
           icon: Icons.event_outlined,
           completed: draft.hasExpiry,
-          active: draft.hasLot && !draft.hasExpiry,
+          active: draft.hasProduct && lotSatisfied && !draft.hasExpiry,
           value: draft.expiryDate != null
               ? DateFormatter.toDisplay(draft.expiryDate!)
               : null,
-          onTap: draft.hasLot ? _onPickExpiry : null,
+          onTap: draft.hasProduct && lotSatisfied ? _onPickExpiry : null,
         ),
         const SizedBox(height: AppDimensions.spaceSm),
         ScanStepCard(
@@ -232,11 +241,15 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           subtitle: 'Type the supplier batch code (required)',
           icon: Icons.tag_rounded,
           completed: draft.hasBatch,
-          active: draft.hasLot,
+          active: draft.hasProduct && lotSatisfied,
           value: draft.supplierBatchCode.isEmpty
               ? null
               : draft.supplierBatchCode,
         ),
+        if (draft.product != null && !requiresLot) ...[
+          const SizedBox(height: AppDimensions.spaceMd),
+          _buildLotTrackingInfo(draft.product!),
+        ],
         const SizedBox(height: AppDimensions.spaceMd),
         AppTextField(
           controller: _batchCtl,
@@ -262,6 +275,30 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
   }
 
   // ── Scan handlers ────────────────────────────────────────────
+  Widget _buildLotTrackingInfo(ProductModel product) {
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceMd),
+      decoration: BoxDecoration(
+        color: AppColors.info.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: AppColors.info, size: 18),
+          const SizedBox(width: AppDimensions.spaceSm),
+          Expanded(
+            child: Text(
+              '${product.productName} does not require lot tracking. The backend will assign a lot number automatically when this session is finalized.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.info),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _onScanProduct() async {
     final result = await BarcodeScannerSheet.show(
       context,
@@ -295,6 +332,8 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       return;
     }
     ref.read(itemDraftProvider.notifier).setProduct(product);
+    _batchCtl.clear();
+    _overrideCtl.clear();
   }
 
   Future<void> _onScanLot() async {

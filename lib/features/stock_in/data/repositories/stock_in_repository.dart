@@ -61,10 +61,7 @@ class StockInRepository {
     int perPage = 15,
   }) async {
     try {
-      final params = <String, dynamic>{
-        'page': page,
-        'per_page': perPage,
-      };
+      final params = <String, dynamic>{'page': page, 'per_page': perPage};
       if (search != null && search.isNotEmpty) params['search'] = search;
       if (status != null && status.isNotEmpty) params['status'] = status;
       if (supplierId != null) params['supplier_id'] = supplierId;
@@ -158,7 +155,7 @@ class StockInRepository {
       if (picUserId != null) payload['pic_user_id'] = picUserId;
       if (remarks != null) payload['remarks'] = remarks;
 
-      final response = await _dio.put<Map<String, dynamic>>(
+      final response = await _dio.patch<Map<String, dynamic>>(
         ApiEndpoints.stockInSessionById(id),
         data: payload,
       );
@@ -174,8 +171,7 @@ class StockInRepository {
         ApiEndpoints.stockInSessionFinalize(id),
       );
       final body = _unwrap(response.data ?? {});
-      final sessionJson =
-          body['session'] as Map<String, dynamic>? ?? const {};
+      final sessionJson = body['session'] as Map<String, dynamic>? ?? const {};
       final lotsJson = (body['created_lots'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>();
       return StockInFinalizeResult(
@@ -203,8 +199,10 @@ class StockInRepository {
 
   Future<StockInItemModel> addItem(
     int sessionId, {
-    required int productId,
-    required String supplierBatchCode,
+    StockInEntryKind entryKind = StockInEntryKind.product,
+    int? productId,
+    int? instrumentSetId,
+    String? supplierBatchCode,
     String? scannedLotNumber,
     DateTime? expiryDate,
     LotEntryMode lotEntryMode = LotEntryMode.scan,
@@ -216,16 +214,26 @@ class StockInRepository {
   }) async {
     try {
       final payload = <String, dynamic>{
-        'product_id': productId,
-        'supplier_batch_code': supplierBatchCode,
-        'lot_entry_mode': lotEntryMode.apiValue,
-        'expiry_entry_mode': expiryEntryMode.apiValue,
-        'missing_lot_flag': missingLotFlag,
+        'entry_kind': entryKind.apiValue,
+        if (entryKind == StockInEntryKind.product && productId != null)
+          'product_id': productId,
+        if (entryKind == StockInEntryKind.set && instrumentSetId != null)
+          'instrument_set_id': instrumentSetId,
+        if (entryKind == StockInEntryKind.product)
+          'supplier_batch_code': supplierBatchCode,
+        if (entryKind == StockInEntryKind.product)
+          'lot_entry_mode': lotEntryMode.apiValue,
+        if (entryKind == StockInEntryKind.product)
+          'expiry_entry_mode': expiryEntryMode.apiValue,
+        if (entryKind == StockInEntryKind.product)
+          'missing_lot_flag': missingLotFlag,
       };
-      if (scannedLotNumber != null && scannedLotNumber.isNotEmpty) {
+      if (entryKind == StockInEntryKind.product &&
+          scannedLotNumber != null &&
+          scannedLotNumber.isNotEmpty) {
         payload['scanned_lot_number'] = scannedLotNumber;
       }
-      if (expiryDate != null) {
+      if (entryKind == StockInEntryKind.product && expiryDate != null) {
         payload['expiry_date'] =
             '${expiryDate.year.toString().padLeft(4, '0')}-'
             '${expiryDate.month.toString().padLeft(2, '0')}-'
@@ -234,7 +242,9 @@ class StockInRepository {
       if (sourceBarcode != null && sourceBarcode.isNotEmpty) {
         payload['source_barcode'] = sourceBarcode;
       }
-      if (entryOverrideReason != null && entryOverrideReason.isNotEmpty) {
+      if (entryKind == StockInEntryKind.product &&
+          entryOverrideReason != null &&
+          entryOverrideReason.isNotEmpty) {
         payload['entry_override_reason'] = entryOverrideReason;
       }
       if (remarks != null && remarks.isNotEmpty) {
@@ -243,6 +253,109 @@ class StockInRepository {
 
       final response = await _dio.post<Map<String, dynamic>>(
         ApiEndpoints.stockInSessionItems(sessionId),
+        data: payload,
+      );
+      return StockInItemModel.fromJson(_unwrap(response.data ?? {}));
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<StockInItemModel> updateItem(
+    int sessionId,
+    int itemId, {
+    int? productId,
+    int? instrumentSetId,
+    String? supplierBatchCode,
+    String? scannedLotNumber,
+    bool clearLot = false,
+    DateTime? expiryDate,
+    bool clearExpiry = false,
+    LotEntryMode? lotEntryMode,
+    LotEntryMode? expiryEntryMode,
+    bool? missingLotFlag,
+    String? entryOverrideReason,
+    String? remarks,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (productId != null) payload['product_id'] = productId;
+      if (instrumentSetId != null) {
+        payload['instrument_set_id'] = instrumentSetId;
+      }
+      if (supplierBatchCode != null) {
+        payload['supplier_batch_code'] = supplierBatchCode;
+      }
+      if (missingLotFlag != null) payload['missing_lot_flag'] = missingLotFlag;
+      if (lotEntryMode != null) {
+        payload['lot_entry_mode'] = lotEntryMode.apiValue;
+      }
+      if (expiryEntryMode != null) {
+        payload['expiry_entry_mode'] = expiryEntryMode.apiValue;
+      }
+      if (clearLot) {
+        payload['scanned_lot_number'] = null;
+      } else if (scannedLotNumber != null) {
+        payload['scanned_lot_number'] = scannedLotNumber.trim().isEmpty
+            ? null
+            : scannedLotNumber.trim();
+      }
+      if (clearExpiry) {
+        payload['expiry_date'] = null;
+      } else if (expiryDate != null) {
+        payload['expiry_date'] =
+            '${expiryDate.year.toString().padLeft(4, '0')}-'
+            '${expiryDate.month.toString().padLeft(2, '0')}-'
+            '${expiryDate.day.toString().padLeft(2, '0')}';
+      }
+      if (entryOverrideReason != null) {
+        payload['entry_override_reason'] = entryOverrideReason.trim().isEmpty
+            ? null
+            : entryOverrideReason.trim();
+      }
+      if (remarks != null) {
+        payload['remarks'] = remarks.trim().isEmpty ? null : remarks.trim();
+      }
+
+      final response = await _dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.stockInSessionItem(sessionId, itemId),
+        data: payload,
+      );
+      return StockInItemModel.fromJson(_unwrap(response.data ?? {}));
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<StockInItemModel> correctItem(
+    int sessionId,
+    int itemId, {
+    String? lotNumber,
+    String? supplierBatchCode,
+    DateTime? expiryDate,
+    required String adminReason,
+  }) async {
+    try {
+      final payload = <String, dynamic>{'admin_reason': adminReason.trim()};
+      if (lotNumber != null) {
+        payload['lot_number'] = lotNumber.trim().isEmpty
+            ? null
+            : lotNumber.trim();
+      }
+      if (supplierBatchCode != null) {
+        payload['supplier_batch_code'] = supplierBatchCode.trim().isEmpty
+            ? null
+            : supplierBatchCode.trim();
+      }
+      if (expiryDate != null) {
+        payload['expiry_date'] =
+            '${expiryDate.year.toString().padLeft(4, '0')}-'
+            '${expiryDate.month.toString().padLeft(2, '0')}-'
+            '${expiryDate.day.toString().padLeft(2, '0')}';
+      }
+
+      final response = await _dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.stockInSessionItemCorrect(sessionId, itemId),
         data: payload,
       );
       return StockInItemModel.fromJson(_unwrap(response.data ?? {}));

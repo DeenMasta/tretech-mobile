@@ -17,7 +17,11 @@ import '../features/stock_in/presentation/screens/confirmation_screen.dart';
 import '../features/stock_in/presentation/screens/create_session_screen.dart';
 import '../features/stock_in/presentation/screens/review_session_screen.dart';
 import '../features/stock_in/presentation/screens/scan_item_screen.dart';
+import '../features/stock_in/presentation/screens/stock_in_detail_screen.dart';
+import '../features/stock_in/presentation/screens/stock_in_edit_session_screen.dart';
+import '../features/stock_in/presentation/screens/stock_in_item_form_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_list_screen.dart';
+import '../features/settings/presentation/screens/settings_screen.dart';
 import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -120,6 +124,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const CreateSessionScreen(),
       ),
       GoRoute(
+        path: RouteNames.stockInDetail,
+        name: 'stockInDetail',
+        builder: (_, state) => StockInDetailScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.stockInEdit,
+        name: 'stockInEdit',
+        builder: (_, state) => StockInEditSessionScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.stockInItemAdd,
+        name: 'stockInItemAdd',
+        builder: (_, state) => StockInItemFormScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.stockInItemEdit,
+        name: 'stockInItemEdit',
+        builder: (_, state) => StockInItemFormScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+          itemId: int.parse(state.pathParameters['itemId'] ?? '0'),
+        ),
+      ),
+      GoRoute(
         path: RouteNames.stockInScan,
         name: 'stockInScan',
         builder: (_, state) => ScanItemScreen(
@@ -164,6 +197,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.disposal,
         name: 'disposal',
         builder: (_, __) => const DisposalScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.settings,
+        name: 'settings',
+        builder: (_, __) => const SettingsScreen(),
       ),
     ],
     errorBuilder: (context, state) =>

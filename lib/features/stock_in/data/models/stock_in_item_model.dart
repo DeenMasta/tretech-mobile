@@ -1,3 +1,5 @@
+import 'instrument_set_model.dart';
+
 class StockInItemProductBrief {
   const StockInItemProductBrief({
     required this.id,
@@ -38,10 +40,27 @@ class StockInItemLotBrief {
   final String? status;
 }
 
+enum StockInEntryKind { product, set }
+
+extension StockInEntryKindX on StockInEntryKind {
+  String get apiValue => name;
+
+  static StockInEntryKind parse(String? raw) {
+    switch (raw) {
+      case 'set':
+        return StockInEntryKind.set;
+      case 'product':
+      default:
+        return StockInEntryKind.product;
+    }
+  }
+}
+
 enum LotEntryMode { scan, manual }
 
 extension LotEntryModeX on LotEntryMode {
   String get apiValue => name;
+
   static LotEntryMode parse(String? raw) {
     switch (raw) {
       case 'manual':
@@ -53,14 +72,16 @@ extension LotEntryModeX on LotEntryMode {
   }
 }
 
-/// Mirrors the Laravel StockInItemResource payload.
 class StockInItemModel {
   const StockInItemModel({
     required this.id,
     required this.stockInId,
-    required this.productId,
+    required this.entryKind,
     required this.supplierBatchCode,
+    this.productId,
+    this.instrumentSetId,
     this.product,
+    this.instrumentSet,
     this.lotId,
     this.lot,
     this.scannedLotNumber,
@@ -79,25 +100,30 @@ class StockInItemModel {
     return StockInItemModel(
       id: (json['id'] as num).toInt(),
       stockInId: (json['stock_in_id'] as num).toInt(),
-      productId: (json['product_id'] as num).toInt(),
+      entryKind: StockInEntryKindX.parse(json['entry_kind'] as String?),
+      productId: (json['product_id'] as num?)?.toInt(),
+      instrumentSetId: (json['instrument_set_id'] as num?)?.toInt(),
       supplierBatchCode: (json['supplier_batch_code'] ?? '').toString(),
       product: json['product'] is Map<String, dynamic>
           ? StockInItemProductBrief.fromJson(
               json['product'] as Map<String, dynamic>,
             )
           : null,
+      instrumentSet: json['instrument_set'] is Map<String, dynamic>
+          ? InstrumentSetModel.fromJson(
+              json['instrument_set'] as Map<String, dynamic>,
+            )
+          : null,
       lotId: (json['lot_id'] as num?)?.toInt(),
       lot: json['lot'] is Map<String, dynamic>
-          ? StockInItemLotBrief.fromJson(
-              json['lot'] as Map<String, dynamic>,
-            )
+          ? StockInItemLotBrief.fromJson(json['lot'] as Map<String, dynamic>)
           : null,
       scannedLotNumber: json['scanned_lot_number'] as String?,
       expiryDate: DateTime.tryParse((json['expiry_date'] ?? '').toString()),
-      lotEntryMode:
-          LotEntryModeX.parse(json['lot_entry_mode'] as String?),
-      expiryEntryMode:
-          LotEntryModeX.parse(json['expiry_entry_mode'] as String?),
+      lotEntryMode: LotEntryModeX.parse(json['lot_entry_mode'] as String?),
+      expiryEntryMode: LotEntryModeX.parse(
+        json['expiry_entry_mode'] as String?,
+      ),
       missingLotFlag: (json['missing_lot_flag'] as bool?) ?? false,
       sourceBarcode: json['source_barcode'] as String?,
       entryOverrideReason: json['entry_override_reason'] as String?,
@@ -109,9 +135,12 @@ class StockInItemModel {
 
   final int id;
   final int stockInId;
-  final int productId;
+  final StockInEntryKind entryKind;
+  final int? productId;
+  final int? instrumentSetId;
   final String supplierBatchCode;
   final StockInItemProductBrief? product;
+  final InstrumentSetModel? instrumentSet;
   final int? lotId;
   final StockInItemLotBrief? lot;
   final String? scannedLotNumber;
@@ -125,8 +154,44 @@ class StockInItemModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  String get productLabel =>
-      product != null ? '${product!.refNum} • ${product!.productName}' : '—';
-  String get lotLabel =>
-      scannedLotNumber ?? lot?.lotNumber ?? (missingLotFlag ? 'Missing lot' : '—');
+  bool get isSetEntry => entryKind == StockInEntryKind.set;
+
+  bool get isProductEntry => entryKind == StockInEntryKind.product;
+
+  String get productLabel {
+    if (isSetEntry) {
+      return instrumentSet?.displayLabel ?? 'Instrument set';
+    }
+    if (product != null) {
+      return '${product!.refNum} - ${product!.productName}';
+    }
+    return '-';
+  }
+
+  String get entryKindLabel => isSetEntry ? 'Set entry' : 'Product entry';
+
+  bool get willAutoGenerateLot =>
+      isProductEntry &&
+      !missingLotFlag &&
+      (scannedLotNumber == null || scannedLotNumber!.trim().isEmpty) &&
+      lot == null;
+
+  String get lotLabel {
+    if (scannedLotNumber != null && scannedLotNumber!.trim().isNotEmpty) {
+      return scannedLotNumber!;
+    }
+    if (lot?.lotNumber != null && lot!.lotNumber.isNotEmpty) {
+      return lot!.lotNumber;
+    }
+    if (missingLotFlag) {
+      return 'Missing lot';
+    }
+    if (isSetEntry) {
+      return 'Minted on finalize';
+    }
+    if (willAutoGenerateLot) {
+      return 'Auto-generate on finalize';
+    }
+    return '-';
+  }
 }

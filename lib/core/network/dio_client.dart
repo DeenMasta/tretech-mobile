@@ -21,7 +21,7 @@ class DioClient {
   static Dio _createDio(Ref ref) {
     const baseUrl = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'http://tretech-backend.test',
+      defaultValue: 'https://tretech-be.mysztechnology.com',
     );
 
     final dio = Dio(

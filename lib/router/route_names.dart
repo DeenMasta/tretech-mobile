@@ -7,9 +7,19 @@ abstract final class RouteNames {
   static const String dashboard = '/dashboard';
   static const String stockIn = '/stock-in';
   static const String stockInCreate = '/stock-in/create';
+  static const String stockInDetail = '/stock-in/:id';
+  static String stockInDetailPath(int id) => '/stock-in/$id';
+  static const String stockInEdit = '/stock-in/:id/edit';
+  static String stockInEditPath(int id) => '/stock-in/$id/edit';
+  static const String stockInItemAdd = '/stock-in/:id/items/add';
+  static String stockInItemAddPath(int id) => '/stock-in/$id/items/add';
+  static const String stockInItemEdit = '/stock-in/:id/items/:itemId/edit';
+  static String stockInItemEditPath(int id, int itemId) =>
+      '/stock-in/$id/items/$itemId/edit';
   static const String stockInScan = '/stock-in/:id/scan';
   static const String stockInReview = '/stock-in/:id/review';
   static const String stockInConfirmation = '/stock-in/:id/confirmation';
+  static String stockInConfirmationPath(int id) => '/stock-in/$id/confirmation';
   static const String qrPrinting = '/qr-printing';
   static const String consignment = '/consignment';
   static const String consignmentCreate = '/consignment/create';

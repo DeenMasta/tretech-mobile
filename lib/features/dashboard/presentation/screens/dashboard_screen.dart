@@ -34,6 +34,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _NavItem(icon: Icons.assignment_return_rounded, label: 'Returns', route: RouteNames.returns),
     _NavItem(icon: Icons.delete_sweep_rounded, label: 'Disposal', route: RouteNames.disposal),
     _NavItem(icon: Icons.warehouse_rounded, label: 'Inventory', route: RouteNames.inventory),
+    _NavItem(icon: Icons.settings_rounded, label: 'Settings', route: RouteNames.settings),
   ];
 
   @override
@@ -515,7 +516,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildAvatarButton(String name) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () => context.push(RouteNames.settings),
       child: CircleAvatar(
         radius: 16,
         backgroundColor: AppColors.primaryContainer,
@@ -559,7 +560,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$greeting, ${user?.name.split(' ').first ?? 'User'} 👋',
+                      '$greeting, ${user?.name.split(' ').first ?? 'User'}',
                       style: AppTextStyles.headlineSmall,
                     ),
                     const SizedBox(height: AppDimensions.spaceXs),

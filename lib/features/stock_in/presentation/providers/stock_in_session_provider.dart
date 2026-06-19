@@ -56,6 +56,7 @@ class ItemDraft {
     this.missingLotFlag = false,
     this.entryOverrideReason,
     this.sourceBarcode,
+    this.remarks,
   });
 
   final ProductModel? product;
@@ -67,13 +68,16 @@ class ItemDraft {
   final bool missingLotFlag;
   final String? entryOverrideReason;
   final String? sourceBarcode;
+  final String? remarks;
 
   bool get hasProduct => product != null;
+  bool get requiresLot => product?.requiresLot ?? true;
   bool get hasLot => (scannedLotNumber?.isNotEmpty ?? false) || missingLotFlag;
+  bool get lotSatisfied => !requiresLot || hasLot;
   bool get hasExpiry => expiryDate != null;
   bool get hasBatch => supplierBatchCode.trim().isNotEmpty;
 
-  bool get readyToSubmit => hasProduct && hasLot && hasBatch;
+  bool get readyToSubmit => hasProduct && lotSatisfied && hasBatch;
 
   bool get requiresOverrideReason =>
       missingLotFlag ||
@@ -90,14 +94,16 @@ class ItemDraft {
     bool? missingLotFlag,
     String? entryOverrideReason,
     String? sourceBarcode,
+    String? remarks,
     bool clearProduct = false,
     bool clearLot = false,
     bool clearExpiry = false,
   }) {
     return ItemDraft(
       product: clearProduct ? null : (product ?? this.product),
-      scannedLotNumber:
-          clearLot ? null : (scannedLotNumber ?? this.scannedLotNumber),
+      scannedLotNumber: clearLot
+          ? null
+          : (scannedLotNumber ?? this.scannedLotNumber),
       expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
       supplierBatchCode: supplierBatchCode ?? this.supplierBatchCode,
       lotEntryMode: lotEntryMode ?? this.lotEntryMode,
@@ -105,14 +111,14 @@ class ItemDraft {
       missingLotFlag: missingLotFlag ?? this.missingLotFlag,
       entryOverrideReason: entryOverrideReason ?? this.entryOverrideReason,
       sourceBarcode: sourceBarcode ?? this.sourceBarcode,
+      remarks: remarks ?? this.remarks,
     );
   }
 }
 
-class StockInSessionController
-    extends StateNotifier<StockInSessionState> {
+class StockInSessionController extends StateNotifier<StockInSessionState> {
   StockInSessionController(this._ref, this._sessionId)
-      : super(const StockInSessionState()) {
+    : super(const StockInSessionState()) {
     _load();
   }
 
@@ -126,11 +132,7 @@ class StockInSessionController
     try {
       final session = await _repo.getSession(_sessionId);
       final items = session.items ?? await _repo.listItems(_sessionId);
-      state = state.copyWith(
-        session: session,
-        items: items,
-        isLoading: false,
-      );
+      state = state.copyWith(session: session, items: items, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -157,8 +159,7 @@ class StockInSessionController
         if (dup) {
           state = state.copyWith(
             isSaving: false,
-            error:
-                'Lot number "$lot" already exists in this session.',
+            error: 'Lot number "$lot" already exists in this session.',
           );
           return false;
         }
@@ -166,23 +167,112 @@ class StockInSessionController
 
       final created = await _repo.addItem(
         session.id,
+        entryKind: StockInEntryKind.product,
         productId: draft.product!.id,
         supplierBatchCode: draft.supplierBatchCode.trim(),
         scannedLotNumber: draft.missingLotFlag
             ? null
             : (draft.scannedLotNumber?.trim().isEmpty ?? true
-                ? null
-                : draft.scannedLotNumber!.trim()),
+                  ? null
+                  : draft.scannedLotNumber!.trim()),
         expiryDate: draft.expiryDate,
         lotEntryMode: draft.lotEntryMode,
         expiryEntryMode: draft.expiryEntryMode,
         missingLotFlag: draft.missingLotFlag,
         sourceBarcode: draft.sourceBarcode,
         entryOverrideReason: draft.entryOverrideReason,
+        remarks: draft.remarks,
       );
 
+      state = state.copyWith(items: [...state.items, created], isSaving: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> addSetItem({
+    required int instrumentSetId,
+    String? remarks,
+  }) async {
+    final session = state.session;
+    if (session == null) return false;
+
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final created = await _repo.addItem(
+        session.id,
+        entryKind: StockInEntryKind.set,
+        instrumentSetId: instrumentSetId,
+        remarks: remarks,
+      );
+      state = state.copyWith(items: [...state.items, created], isSaving: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> updateItem(
+    int itemId, {
+    required int productId,
+    required String supplierBatchCode,
+    String? scannedLotNumber,
+    bool clearLot = false,
+    DateTime? expiryDate,
+    bool clearExpiry = false,
+    LotEntryMode lotEntryMode = LotEntryMode.scan,
+    LotEntryMode expiryEntryMode = LotEntryMode.scan,
+    bool missingLotFlag = false,
+    String? entryOverrideReason,
+    String? remarks,
+  }) async {
+    final session = state.session;
+    if (session == null) return false;
+
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final updated = await _repo.updateItem(
+        session.id,
+        itemId,
+        productId: productId,
+        supplierBatchCode: supplierBatchCode,
+        scannedLotNumber: scannedLotNumber,
+        clearLot: clearLot,
+        expiryDate: expiryDate,
+        clearExpiry: clearExpiry,
+        lotEntryMode: lotEntryMode,
+        expiryEntryMode: expiryEntryMode,
+        missingLotFlag: missingLotFlag,
+        entryOverrideReason: entryOverrideReason,
+        remarks: remarks,
+      );
       state = state.copyWith(
-        items: [...state.items, created],
+        items: state.items.map((i) => i.id == itemId ? updated : i).toList(),
+        isSaving: false,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> updateSetItem(int itemId, {String? remarks}) async {
+    final session = state.session;
+    if (session == null) return false;
+
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final updated = await _repo.updateItem(
+        session.id,
+        itemId,
+        remarks: remarks,
+      );
+      state = state.copyWith(
+        items: state.items.map((i) => i.id == itemId ? updated : i).toList(),
         isSaving: false,
       );
       return true;
@@ -238,17 +328,18 @@ class StockInSessionController
 
 /// Per-session controller. Use `.family(sessionId)`.
 final stockInSessionControllerProvider = StateNotifierProvider.autoDispose
-    .family<StockInSessionController, StockInSessionState, int>(
-        (ref, sessionId) {
-  return StockInSessionController(ref, sessionId);
-});
+    .family<StockInSessionController, StockInSessionState, int>((
+      ref,
+      sessionId,
+    ) {
+      return StockInSessionController(ref, sessionId);
+    });
 
 /// Local-only draft notifier for the in-progress item being scanned.
 class ItemDraftNotifier extends StateNotifier<ItemDraft> {
   ItemDraftNotifier() : super(const ItemDraft());
 
-  void setProduct(ProductModel product) =>
-      state = state.copyWith(product: product);
+  void setProduct(ProductModel product) => state = ItemDraft(product: product);
 
   void setLot({
     required String lotNumber,
@@ -274,8 +365,7 @@ class ItemDraftNotifier extends StateNotifier<ItemDraft> {
     required DateTime date,
     LotEntryMode mode = LotEntryMode.scan,
   }) {
-    state =
-        state.copyWith(expiryDate: date, expiryEntryMode: mode);
+    state = state.copyWith(expiryDate: date, expiryEntryMode: mode);
   }
 
   void clearExpiry() => state = state.copyWith(clearExpiry: true);
@@ -289,10 +379,12 @@ class ItemDraftNotifier extends StateNotifier<ItemDraft> {
   void setSourceBarcode(String? value) =>
       state = state.copyWith(sourceBarcode: value);
 
+  void setRemarks(String? value) => state = state.copyWith(remarks: value);
+
   void reset() => state = const ItemDraft();
 }
 
 final itemDraftProvider =
     StateNotifierProvider.autoDispose<ItemDraftNotifier, ItemDraft>(
-  (ref) => ItemDraftNotifier(),
-);
+      (ref) => ItemDraftNotifier(),
+    );

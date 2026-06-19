@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
-import '../../../auth/data/models/auth_models.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../data/models/stock_in_session_model.dart';
 import '../../data/models/supplier_model.dart';
+import '../../data/repositories/master_data_repository.dart';
 import '../../data/repositories/stock_in_repository.dart';
-import '../providers/master_data_providers.dart';
 import '../providers/stock_in_list_provider.dart';
+import '../widgets/supplier_search_sheet.dart';
 
 class CreateSessionScreen extends ConsumerStatefulWidget {
   const CreateSessionScreen({super.key});
@@ -29,9 +29,11 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   final _remarksCtl = TextEditingController();
 
   SupplierModel? _supplier;
-  StockInUserBrief? _pic;
   DateTime _stockInAt = DateTime.now();
   bool _saving = false;
+
+  StockInMasterDataRepository get _masterRepo =>
+      ref.read(stockInMasterDataRepositoryProvider);
 
   @override
   void dispose() {
@@ -40,36 +42,42 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDateTime() async {
-    final date = await showDatePicker(
+  Future<void> _pickSupplier() async {
+    final selected = await SupplierSearchSheet.show(
+      context,
+      repository: _masterRepo,
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _supplier = selected);
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
       context: context,
       initialDate: _stockInAt,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365 * 5)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
-    if (date == null || !mounted) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_stockInAt),
-    );
-    if (time == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       _stockInAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
+        picked.year,
+        picked.month,
+        picked.day,
+        _stockInAt.hour,
+        _stockInAt.minute,
       );
     });
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_supplier == null || _pic == null) {
+    final currentUser = ref.read(currentUserProvider);
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (_supplier == null || currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pick a supplier and PIC.')),
+        const SnackBar(content: Text('Supplier and PIC are required.')),
       );
       return;
     }
@@ -81,39 +89,40 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
         supplierId: _supplier!.id,
         doNumber: _doCtl.text.trim(),
         stockInAt: _stockInAt,
-        picUserId: _pic!.id,
+        picUserId: currentUser.id,
         remarks: _remarksCtl.text.trim(),
       );
       ref.invalidate(stockInListProvider);
-      if (!mounted) return;
-      context.pushReplacement('/stock-in/${session.id}/scan');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create: $e')),
-        );
+      if (!mounted) {
+        return;
       }
+      context.go(RouteNames.stockInDetailPath(session.id));
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to create session: $e')));
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final suppliersAsync = ref.watch(suppliersProvider);
-    final picUsersAsync = ref.watch(picUsersProvider);
     final currentUser = ref.watch(currentUserProvider);
-
-    // Default PIC to current user.
-    if (_pic == null && currentUser != null) {
-      _pic = StockInUserBrief(id: currentUser.id, fullName: currentUser.name);
-    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.sidebarBg,
-        title: Text('Create stock-in session', style: AppTextStyles.titleMedium),
+        title: Text(
+          'Create stock-in session',
+          style: AppTextStyles.titleMedium,
+        ),
       ),
       body: SafeArea(
         child: Form(
@@ -121,46 +130,64 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
           child: ListView(
             padding: const EdgeInsets.all(AppDimensions.spaceLg),
             children: [
-              _sectionHeader('Session information'),
-              const SizedBox(height: AppDimensions.spaceMd),
-              suppliersAsync.when(
-                loading: () => const _Loading(),
-                error: (e, _) => const _ErrorBox('Failed to load suppliers'),
-                data: (suppliers) => _supplierField(suppliers),
+              Text(
+                'Capture the stock-in header before items are added.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spaceLg),
+              _PickerField(
+                label: 'Supplier',
+                value: _supplier?.supplierName,
+                hint: 'Tap to search suppliers',
+                icon: Icons.local_shipping_outlined,
+                onTap: _pickSupplier,
               ),
               const SizedBox(height: AppDimensions.spaceMd),
               AppTextField(
                 controller: _doCtl,
                 label: 'DO number',
-                hint: 'e.g. DO-2026-001',
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
+                hint: 'DO-2026-001',
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'DO number is required.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: AppDimensions.spaceMd),
-              _dateTimeField(),
+              _PickerField(
+                label: 'Stock-in date',
+                value: DateFormatter.toDisplay(_stockInAt),
+                hint: 'Pick stock-in date',
+                helperText: 'Defaults to today',
+                icon: Icons.event_outlined,
+                onTap: _pickDate,
+              ),
               const SizedBox(height: AppDimensions.spaceMd),
-              picUsersAsync.when(
-                loading: () => const _Loading(),
-                error: (e, _) => const SizedBox.shrink(),
-                data: (users) => _picField(users, currentUser),
+              _ReadOnlyField(
+                label: 'PIC user',
+                value: currentUser?.name ?? '-',
+                helperText: 'Auto-filled from your account',
+                icon: Icons.person_outline,
               ),
               const SizedBox(height: AppDimensions.spaceMd),
               AppTextField(
                 controller: _remarksCtl,
-                label: 'Remarks (optional)',
-                hint: 'Add any notes for this session',
+                label: 'Remarks',
+                hint: 'Enter any notes for the receiving team',
                 maxLines: 3,
               ),
               const SizedBox(height: AppDimensions.space3xl),
               AppButton(
-                label: 'Create & start scanning',
-                icon: Icons.qr_code_scanner_rounded,
+                label: 'Create session',
                 isLoading: _saving,
-                onPressed: _submit,
+                onPressed: _saving ? null : _submit,
               ),
               const SizedBox(height: AppDimensions.spaceMd),
               AppButton(
-                label: 'Cancel',
+                label: 'Back',
                 variant: AppButtonVariant.ghost,
                 onPressed: _saving ? null : () => context.pop(),
               ),
@@ -170,127 +197,114 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       ),
     );
   }
-
-  Widget _sectionHeader(String title) {
-    return Text(
-      title,
-      style: AppTextStyles.titleSmall.copyWith(fontWeight: FontWeight.w700),
-    );
-  }
-
-  Widget _supplierField(List<SupplierModel> suppliers) {
-    return DropdownButtonFormField<SupplierModel>(
-      initialValue: _supplier,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Supplier',
-        prefixIcon: Icon(Icons.local_shipping_outlined, size: 18),
-      ),
-      items: suppliers
-          .map(
-            (s) => DropdownMenuItem(
-              value: s,
-              child: Text(s.supplierName, overflow: TextOverflow.ellipsis),
-            ),
-          )
-          .toList(),
-      onChanged: (v) => setState(() => _supplier = v),
-      validator: (v) => v == null ? 'Pick a supplier' : null,
-    );
-  }
-
-  Widget _picField(List<StockInUserBrief> users, UserModel? currentUser) {
-    final list = [
-      if (currentUser != null &&
-          !users.any((u) => u.id == currentUser.id))
-        StockInUserBrief(id: currentUser.id, fullName: currentUser.name),
-      ...users,
-    ];
-
-    if (list.isEmpty) {
-      return AppTextField(
-        controller: TextEditingController(
-          text: currentUser?.name ?? '—',
-        ),
-        label: 'PIC',
-        readOnly: true,
-        prefixIcon: Icons.person_outline,
-      );
-    }
-
-    return DropdownButtonFormField<int>(
-      initialValue: _pic?.id,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'PIC (Person in charge)',
-        prefixIcon: Icon(Icons.person_outline, size: 18),
-      ),
-      items: list
-          .map(
-            (u) => DropdownMenuItem(
-              value: u.id,
-              child: Text(u.fullName, overflow: TextOverflow.ellipsis),
-            ),
-          )
-          .toList(),
-      onChanged: (id) {
-        if (id == null) return;
-        setState(() => _pic = list.firstWhere((u) => u.id == id));
-      },
-      validator: (v) => v == null ? 'Pick a PIC' : null,
-    );
-  }
-
-  Widget _dateTimeField() {
-    return InkWell(
-      onTap: _pickDateTime,
-      borderRadius: BorderRadius.circular(AppDimensions.inputRadius),
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Stock-in date & time',
-          prefixIcon: Icon(Icons.event_outlined, size: 18),
-        ),
-        child: Text(
-          DateFormatter.toDisplayDateTime(_stockInAt),
-          style: AppTextStyles.bodyMedium,
-        ),
-      ),
-    );
-  }
 }
 
-class _Loading extends StatelessWidget {
-  const _Loading();
-  @override
-  Widget build(BuildContext context) => const SizedBox(
-        height: 56,
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-}
+class _ReadOnlyField extends StatelessWidget {
+  const _ReadOnlyField({
+    required this.label,
+    required this.value,
+    required this.helperText,
+    required this.icon,
+  });
 
-class _ErrorBox extends StatelessWidget {
-  const _ErrorBox(this.message);
-  final String message;
+  final String label;
+  final String value;
+  final String helperText;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.spaceMd),
-      decoration: BoxDecoration(
-        color: AppColors.errorContainer,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        message,
-        style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        InputDecorator(
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 18),
+            filled: true,
+            fillColor: AppColors.surfaceElevated,
+          ),
+          child: Text(value, style: AppTextStyles.bodyMedium),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          helperText,
+          style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
+        ),
+      ],
+    );
+  }
+}
+
+class _PickerField extends StatelessWidget {
+  const _PickerField({
+    required this.label,
+    required this.hint,
+    required this.icon,
+    required this.onTap,
+    this.value,
+    this.helperText,
+  });
+
+  final String label;
+  final String hint;
+  final String? value;
+  final String? helperText;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = value != null && value!.trim().isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, size: 18),
+              suffixIcon: const Icon(Icons.search_rounded, size: 18),
+              filled: true,
+              fillColor: AppColors.surfaceElevated,
+            ),
+            child: Text(
+              hasValue ? value! : hint,
+              style: hasValue
+                  ? AppTextStyles.bodyMedium
+                  : AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+            ),
+          ),
+        ),
+        if (helperText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            helperText!,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

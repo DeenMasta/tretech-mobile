@@ -9,12 +9,18 @@ final _log = Logger(printer: PrettyPrinter(methodCount: 0));
 class ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    _log.e(
-      '[API Error] ${err.requestOptions.method} ${err.requestOptions.path}',
-      error: err.message,
-    );
-
     final appEx = _mapDioError(err);
+    
+    final statusCode = err.response?.statusCode;
+    if (statusCode != null && statusCode >= 400 && statusCode < 500) {
+      _log.w('[API Error] ${err.requestOptions.method} ${err.requestOptions.path} - $statusCode: ${appEx.message}');
+    } else {
+      _log.e(
+        '[API Error] ${err.requestOptions.method} ${err.requestOptions.path}',
+        error: appEx.message,
+      );
+    }
+
     handler.reject(
       DioException(
         requestOptions: err.requestOptions,
@@ -48,17 +54,23 @@ class ErrorInterceptor extends Interceptor {
 
     final status = response.statusCode ?? 0;
     final responseData = response.data as Map<String, dynamic>?;
+    final serverMessage = responseData?['message'] as String?;
 
     switch (status) {
       case 401:
-        return const UnauthorizedException();
+        return serverMessage != null 
+            ? UnauthorizedException(serverMessage) 
+            : const UnauthorizedException();
       case 403:
-        return const ForbiddenException();
+        return serverMessage != null 
+            ? ForbiddenException(serverMessage) 
+            : const ForbiddenException();
       case 404:
-        return const NotFoundException();
+        return serverMessage != null 
+            ? NotFoundException(serverMessage) 
+            : const NotFoundException();
       case 422:
-        final message =
-            responseData?['message'] as String? ?? 'Validation failed.';
+        final message = serverMessage ?? 'Validation failed.';
         final rawErrors =
             responseData?['errors'] as Map<String, dynamic>? ?? {};
         final errors = rawErrors.map(
@@ -70,8 +82,7 @@ class ErrorInterceptor extends Interceptor {
         return ValidationException(message: message, errors: errors);
       default:
         if (status >= 500) return ServerException.withCode(status);
-        final fallbackMsg =
-            responseData?['message'] as String? ?? 'Request failed.';
+        final fallbackMsg = serverMessage ?? 'Request failed.';
         return UnknownException(fallbackMsg);
     }
   }

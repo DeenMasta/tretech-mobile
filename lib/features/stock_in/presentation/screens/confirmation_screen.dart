@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../../../core/services/bluetooth_print_service.dart';
 import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/models/lot_model.dart';
 import '../../data/repositories/qr_print_repository.dart';
 import '../providers/stock_in_list_provider.dart';
@@ -73,11 +75,10 @@ class ConfirmationScreen extends ConsumerWidget {
               const SizedBox(width: AppDimensions.spaceMd),
               Expanded(
                 child: AppButton(
-                  label: 'Done',
-                  icon: Icons.check_rounded,
+                  label: 'Back to details',
+                  icon: Icons.arrow_back_rounded,
                   onPressed: () {
-                    ref.invalidate(stockInListProvider);
-                    context.go(RouteNames.dashboard);
+                    context.go(RouteNames.stockInDetailPath(sessionId));
                   },
                 ),
               ),
@@ -98,16 +99,17 @@ class ConfirmationScreen extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle_rounded,
-              color: AppColors.success, size: 32),
+          Icon(Icons.check_circle_rounded, color: AppColors.success, size: 32),
           const SizedBox(width: AppDimensions.spaceMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Session $sessionNo finalized',
-                    style: AppTextStyles.titleSmall
-                        .copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  'Session $sessionNo finalized',
+                  style: AppTextStyles.titleSmall
+                      .copyWith(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   '$lotCount lot${lotCount == 1 ? '' : 's'} created and ready for QR printing.',
@@ -168,19 +170,62 @@ class _LotCardState extends ConsumerState<_LotCard> {
   }
 
   Future<void> _print() async {
-    setState(() => _printing = true);
-    try {
-      await ref.read(qrPrintRepositoryProvider).createPrintJob(
-            lotId: widget.lot.id,
-          );
+    final printer = ref.read(settingsProvider);
+    if (!printer.isConfigured) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Print job queued.')),
+        SnackBar(
+          content:
+              const Text('No printer configured. Go to Settings to add one.'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: () => context.push(RouteNames.settings),
+          ),
+        ),
       );
+      return;
+    }
+
+    setState(() => _printing = true);
+    try {
+      final repo = ref.read(qrPrintRepositoryProvider);
+      final bt = ref.read(bluetoothPrintServiceProvider);
+      final messenger = ScaffoldMessenger.of(context);
+
+      final job = await repo.createPrintJob(
+        lotId: widget.lot.id,
+        printerName: printer.printerName,
+        deviceId: printer.macAddress,
+      );
+
+      final tspl = job.tsplPayload;
+      if (tspl == null || tspl.isEmpty) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No TSPL payload returned.')),
+        );
+        await repo.markFailed(job.id, errorMessage: 'Empty TSPL payload');
+        return;
+      }
+
+      final result = await bt.printTspl(printer.macAddress, tspl);
+      if (!mounted) return;
+
+      if (result.success) {
+        await repo.markPrinted(job.id);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Label sent to printer.')),
+        );
+      } else {
+        await repo.markFailed(job.id, errorMessage: result.error);
+        messenger.showSnackBar(
+          SnackBar(content: Text('Print failed: ${result.error}')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to queue print: $e')),
+        SnackBar(content: Text('Error: $e')),
       );
     } finally {
       if (mounted) setState(() => _printing = false);
@@ -211,9 +256,11 @@ class _LotCardState extends ConsumerState<_LotCard> {
               child: Icon(Icons.qr_code_2_rounded,
                   color: AppColors.primary, size: 18),
             ),
-            title: Text(lot.lotNumber,
-                style: AppTextStyles.bodyMedium
-                    .copyWith(fontWeight: FontWeight.w700)),
+            title: Text(
+              lot.lotNumber,
+              style:
+                  AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700),
+            ),
             subtitle: Text(
               [
                 if (lot.supplierBatchCode != null)
@@ -267,8 +314,7 @@ class _LotCardState extends ConsumerState<_LotCard> {
               padding: const EdgeInsets.all(AppDimensions.spaceMd),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.cardRadius),
+                borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
                 border: Border.all(color: AppColors.border),
               ),
               child: QrImageView(
