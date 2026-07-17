@@ -15,8 +15,6 @@ import '../features/qr_printing/presentation/screens/qr_printing_screen.dart';
 import '../features/returns/presentation/screens/returns_screen.dart';
 import '../features/stock_in/presentation/screens/confirmation_screen.dart';
 import '../features/stock_in/presentation/screens/create_session_screen.dart';
-import '../features/stock_in/presentation/screens/review_session_screen.dart';
-import '../features/stock_in/presentation/screens/scan_item_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_detail_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_edit_session_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_item_form_screen.dart';
@@ -26,10 +24,10 @@ import 'route_names.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = ValueNotifier<int>(0);
-  ref.listen<AuthState>(authProvider, (_, __) {
+  ref.listen<AuthState>(authProvider, (_, _) {
     refreshNotifier.value++;
   });
-  ref.listen<AuthSessionState>(authSessionProvider, (_, __) {
+  ref.listen<AuthSessionState>(authSessionProvider, (_, _) {
     refreshNotifier.value++;
   });
   ref.onDispose(refreshNotifier.dispose);
@@ -87,7 +85,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.splash,
         name: 'splash',
-        builder: (_, __) => const SplashScreen(),
+        builder: (_, _) => const SplashScreen(),
       ),
       GoRoute(
         path: RouteNames.login,
@@ -116,12 +114,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.stockIn,
         name: 'stockIn',
-        builder: (_, __) => const StockInListScreen(),
+        builder: (_, _) => const StockInListScreen(),
       ),
       GoRoute(
         path: RouteNames.stockInCreate,
         name: 'stockInCreate',
-        builder: (_, __) => const CreateSessionScreen(),
+        builder: (_, _) => const CreateSessionScreen(),
       ),
       GoRoute(
         path: RouteNames.stockInDetail,
@@ -153,22 +151,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: RouteNames.stockInScan,
-        name: 'stockInScan',
-        builder: (_, state) => ScanItemScreen(
-          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
-        ),
-      ),
-      GoRoute(
-        path: RouteNames.stockInReview,
-        name: 'stockInReview',
-        builder: (_, state) => ReviewSessionScreen(
-          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
-        ),
-      ),
-      GoRoute(
-        path: RouteNames.stockInConfirmation,
-        name: 'stockInConfirmation',
+        path: RouteNames.stockInFinalized,
+        name: 'stockInFinalized',
         builder: (_, state) => ConfirmationScreen(
           sessionId: int.parse(state.pathParameters['id'] ?? '0'),
         ),
@@ -176,32 +160,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.inventory,
         name: 'inventory',
-        builder: (_, __) => const InventoryScreen(),
+        builder: (_, _) => const InventoryScreen(),
       ),
       GoRoute(
         path: RouteNames.qrPrinting,
         name: 'qrPrinting',
-        builder: (_, __) => const QrPrintingScreen(),
+        builder: (_, _) => const QrPrintingScreen(),
       ),
       GoRoute(
         path: RouteNames.consignment,
         name: 'consignment',
-        builder: (_, __) => const ConsignmentScreen(),
+        builder: (_, _) => const ConsignmentScreen(),
       ),
       GoRoute(
         path: RouteNames.returns,
         name: 'returns',
-        builder: (_, __) => const ReturnsScreen(),
+        builder: (_, _) => const ReturnsScreen(),
       ),
       GoRoute(
         path: RouteNames.disposal,
         name: 'disposal',
-        builder: (_, __) => const DisposalScreen(),
+        builder: (_, _) => const DisposalScreen(),
       ),
       GoRoute(
         path: RouteNames.settings,
         name: 'settings',
-        builder: (_, __) => const SettingsScreen(),
+        builder: (_, _) => const SettingsScreen(),
       ),
     ],
     errorBuilder: (context, state) =>
@@ -216,7 +200,7 @@ CustomTransitionPage<void> _fadePage({
   return CustomTransitionPage(
     key: key,
     child: child,
-    transitionsBuilder: (_, animation, __, pageChild) {
+    transitionsBuilder: (_, animation, _, pageChild) {
       return FadeTransition(opacity: animation, child: pageChild);
     },
   );

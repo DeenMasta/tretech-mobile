@@ -8,6 +8,8 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/content_card.dart';
+import '../../../../shared/widgets/status_banner.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/models/lot_model.dart';
 import '../../data/repositories/qr_print_repository.dart';
@@ -33,7 +35,7 @@ class ConfirmationScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.sidebarBg,
         automaticallyImplyLeading: false,
-        title: Text('Session confirmed', style: AppTextStyles.titleMedium),
+        title: Text('Finalize result', style: AppTextStyles.titleMedium),
       ),
       body: session == null
           ? const Center(child: CircularProgressIndicator())
@@ -46,9 +48,10 @@ class ConfirmationScreen extends ConsumerWidget {
                   _emptyLotsBox()
                 else ...[
                   Text(
-                    'Generated lots',
-                    style: AppTextStyles.titleSmall
-                        .copyWith(fontWeight: FontWeight.w700),
+                    'Created lots',
+                    style: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: AppDimensions.spaceSm),
                   ...lots.map((l) => _LotCard(lot: l)),
@@ -90,33 +93,27 @@ class ConfirmationScreen extends ConsumerWidget {
   }
 
   Widget _successBanner(String sessionNo, int lotCount) {
-    return Container(
+    return ContentCard(
       padding: const EdgeInsets.all(AppDimensions.spaceLg),
-      decoration: BoxDecoration(
-        color: AppColors.successContainer,
-        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-      ),
-      child: Row(
+      backgroundColor: AppColors.successContainer,
+      borderColor: AppColors.success.withValues(alpha: 0.3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle_rounded, color: AppColors.success, size: 32),
-          const SizedBox(width: AppDimensions.spaceMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Session $sessionNo finalized',
-                  style: AppTextStyles.titleSmall
-                      .copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$lotCount lot${lotCount == 1 ? '' : 's'} created and ready for QR printing.',
-                  style: AppTextStyles.bodySmall,
-                ),
-              ],
+          Text(
+            sessionNo,
+            style: AppTextStyles.titleSmall.copyWith(
+              fontWeight: FontWeight.w700,
             ),
+          ),
+          const SizedBox(height: 6),
+          StatusBanner(
+            message:
+                'Stock-in confirmation completed successfully. $lotCount lot${lotCount == 1 ? '' : 's'} created.',
+            icon: Icons.check_circle_rounded,
+            foregroundColor: AppColors.success,
+            backgroundColor: AppColors.successContainer,
+            borderColor: AppColors.success.withValues(alpha: 0.3),
           ),
         ],
       ),
@@ -124,15 +121,10 @@ class ConfirmationScreen extends ConsumerWidget {
   }
 
   Widget _emptyLotsBox() {
-    return Container(
+    return ContentCard(
       padding: const EdgeInsets.all(AppDimensions.spaceLg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-        border: Border.all(color: AppColors.border),
-      ),
       child: Text(
-        'No new lots were created. Open the session detail to view items.',
+        'The session is finalized, but no created lot result is available in this view.',
         style: AppTextStyles.bodySmall,
       ),
     );
@@ -159,12 +151,18 @@ class _LotCardState extends ConsumerState<_LotCard> {
       final repo = ref.read(qrPrintRepositoryProvider);
       final label = await repo.getOrCreateLabel(widget.lot.id);
       if (!mounted) return;
+      if (label.qrPayload.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QR payload is empty for this lot.')),
+        );
+        return;
+      }
       setState(() => _qrPayload = label.qrPayload);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load QR: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load QR: $e')));
       }
     }
   }
@@ -175,8 +173,9 @@ class _LotCardState extends ConsumerState<_LotCard> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              const Text('No printer configured. Go to Settings to add one.'),
+          content: const Text(
+            'No printer configured. Go to Settings to add one.',
+          ),
           action: SnackBarAction(
             label: 'Settings',
             onPressed: () => context.push(RouteNames.settings),
@@ -224,9 +223,9 @@ class _LotCardState extends ConsumerState<_LotCard> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _printing = false);
     }
@@ -253,13 +252,17 @@ class _LotCardState extends ConsumerState<_LotCard> {
                 color: AppColors.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.qr_code_2_rounded,
-                  color: AppColors.primary, size: 18),
+              child: Icon(
+                Icons.qr_code_2_rounded,
+                color: AppColors.primary,
+                size: 18,
+              ),
             ),
             title: Text(
               lot.lotNumber,
-              style:
-                  AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700),
+              style: AppTextStyles.bodyMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             subtitle: Text(
               [
@@ -317,10 +320,12 @@ class _LotCardState extends ConsumerState<_LotCard> {
                 borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
                 border: Border.all(color: AppColors.border),
               ),
-              child: QrImageView(
-                data: _qrPayload!,
-                size: 180,
-                backgroundColor: Colors.white,
+              child: SizedBox.square(
+                dimension: 180,
+                child: QrImageView(
+                  data: _qrPayload!,
+                  backgroundColor: Colors.white,
+                ),
               ),
             ),
           const SizedBox(height: AppDimensions.spaceMd),

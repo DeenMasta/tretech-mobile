@@ -18,6 +18,8 @@ abstract final class RouteNames {
       '/stock-in/$id/items/$itemId/edit';
   static const String stockInScan = '/stock-in/:id/scan';
   static const String stockInReview = '/stock-in/:id/review';
+  static const String stockInFinalized = '/stock-in/:id/finalized';
+  static String stockInFinalizedPath(int id) => '/stock-in/$id/finalized';
   static const String stockInConfirmation = '/stock-in/:id/confirmation';
   static String stockInConfirmationPath(int id) => '/stock-in/$id/confirmation';
   static const String qrPrinting = '/qr-printing';

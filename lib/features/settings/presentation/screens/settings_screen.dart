@@ -21,7 +21,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _testPrint(String macAddress) async {
     final service = ref.read(bluetoothPrintServiceProvider);
-    
+
     // Very simple TSPL test payload
     const tspl = '''
 SIZE 40 mm, 30 mm
@@ -31,14 +31,14 @@ TEXT 10,10,"4",0,1,1,"Test Print Successful!"
 PRINT 1
 ''';
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sending test print...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Sending test print...')));
 
     final result = await service.printTspl(macAddress, tspl);
-    
+
     if (!mounted) return;
-    
+
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Test print completed successfully.')),
@@ -63,7 +63,9 @@ PRINT 1
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Bluetooth & Location permissions are required to select a printer.'),
+            content: Text(
+              'Bluetooth & Location permissions are required to select a printer.',
+            ),
           ),
         );
       }
@@ -96,7 +98,9 @@ PRINT 1
       builder: (ctx) => _PrinterPickerSheet(
         devices: devices,
         onSelected: (device) {
-          ref.read(settingsProvider.notifier).savePrinter(
+          ref
+              .read(settingsProvider.notifier)
+              .savePrinter(
                 printerName: device.name,
                 macAddress: device.macAddress,
               );
@@ -155,8 +159,9 @@ PRINT 1
                           color: printer.isConfigured
                               ? AppColors.successContainer
                               : AppColors.surfaceElevated,
-                          borderRadius:
-                              BorderRadius.circular(AppDimensions.radiusMd),
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.radiusMd,
+                          ),
                         ),
                         child: Icon(
                           Icons.print_rounded,
@@ -199,8 +204,9 @@ PRINT 1
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.successContainer,
-                            borderRadius:
-                                BorderRadius.circular(AppDimensions.radiusFull),
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.radiusFull,
+                            ),
                           ),
                           child: Text(
                             'Active',
@@ -221,8 +227,7 @@ PRINT 1
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed:
-                              _loadingDevices ? null : _selectPrinter,
+                          onPressed: _loadingDevices ? null : _selectPrinter,
                           icon: _loadingDevices
                               ? const SizedBox(
                                   width: 14,
@@ -231,8 +236,10 @@ PRINT 1
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.bluetooth_searching_rounded,
-                                  size: 16),
+                              : const Icon(
+                                  Icons.bluetooth_searching_rounded,
+                                  size: 16,
+                                ),
                           label: Text(
                             printer.isConfigured
                                 ? 'Change Printer'
@@ -262,9 +269,7 @@ PRINT 1
                           onPressed: () {
                             ref.read(settingsProvider.notifier).clearPrinter();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Printer removed.'),
-                              ),
+                              const SnackBar(content: Text('Printer removed.')),
                             );
                           },
                           icon: const Icon(Icons.link_off_rounded, size: 16),
@@ -297,10 +302,7 @@ PRINT 1
             ),
             child: const Column(
               children: [
-                _InfoTile(
-                  label: 'Version',
-                  value: '1.0.0',
-                ),
+                _InfoTile(label: 'Version', value: '1.0.0'),
                 Divider(height: 1),
                 _InfoTile(label: 'App', value: 'TRETECH Warehouse Manager'),
                 Divider(height: 1),
@@ -379,10 +381,7 @@ class _InfoTile extends StatelessWidget {
 // ── Printer picker bottom sheet ───────────────────────────────────────────────
 
 class _PrinterPickerSheet extends StatelessWidget {
-  const _PrinterPickerSheet({
-    required this.devices,
-    required this.onSelected,
-  });
+  const _PrinterPickerSheet({required this.devices, required this.onSelected});
 
   final List<BluetoothDevice> devices;
   final void Function(BluetoothDevice device) onSelected;
@@ -402,12 +401,18 @@ class _PrinterPickerSheet extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.bluetooth_rounded,
-                  size: 18, color: AppColors.textMuted),
+              Icon(
+                Icons.bluetooth_rounded,
+                size: 18,
+                color: AppColors.textMuted,
+              ),
               const SizedBox(width: AppDimensions.spaceSm),
-              Text('Select Bluetooth Printer',
-                  style: AppTextStyles.titleSmall
-                      .copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Select Bluetooth Printer',
+                style: AppTextStyles.titleSmall.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close_rounded),
@@ -426,7 +431,7 @@ class _PrinterPickerSheet extends StatelessWidget {
           child: ListView.separated(
             shrinkWrap: true,
             itemCount: devices.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (_, i) {
               final device = devices[i];
               return ListTile(
@@ -435,30 +440,39 @@ class _PrinterPickerSheet extends StatelessWidget {
                   height: 38,
                   decoration: BoxDecoration(
                     color: AppColors.primaryContainer,
-                    borderRadius:
-                        BorderRadius.circular(AppDimensions.radiusMd),
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
                   ),
-                  child: Icon(Icons.print_rounded,
-                      size: 18, color: AppColors.primary),
+                  child: Icon(
+                    Icons.print_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                 ),
                 title: Text(
                   device.name.isNotEmpty ? device.name : 'Unknown Device',
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(fontWeight: FontWeight.w500),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 subtitle: Text(
                   device.macAddress,
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.textMuted),
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textMuted,
+                  ),
                 ),
-                trailing: Icon(Icons.chevron_right_rounded,
-                    color: AppColors.textMuted, size: 18),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
+                  size: 18,
+                ),
                 onTap: () => onSelected(device),
               );
             },
           ),
         ),
-        SizedBox(height: MediaQuery.paddingOf(context).bottom + AppDimensions.spaceMd),
+        SizedBox(
+          height: MediaQuery.paddingOf(context).bottom + AppDimensions.spaceMd,
+        ),
       ],
     );
   }

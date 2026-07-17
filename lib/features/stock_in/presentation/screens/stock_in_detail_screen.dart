@@ -8,6 +8,9 @@ import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
+import '../../../../shared/widgets/content_card.dart';
+import '../../../../shared/widgets/section_header.dart';
+import '../../../../shared/widgets/status_banner.dart';
 import '../../data/models/stock_in_item_model.dart';
 import '../../data/models/stock_in_session_model.dart';
 import '../providers/stock_in_list_provider.dart';
@@ -25,7 +28,7 @@ class StockInDetailScreen extends ConsumerWidget {
     final state = ref.watch(stockInSessionControllerProvider(sessionId));
     final session = state.session;
 
-    if (state.isLoading) {
+    if (state.isLoading || (session == null && state.error == null)) {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -79,39 +82,6 @@ class StockInDetailScreen extends ConsumerWidget {
           const SizedBox(width: AppDimensions.spaceXs),
         ],
       ),
-      floatingActionButton: isDraft
-          ? FloatingActionButton.extended(
-              onPressed: () =>
-                  context.push(RouteNames.stockInItemAddPath(sessionId)),
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add item'),
-            )
-          : null,
-      bottomNavigationBar: canFinalize
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppDimensions.spaceLg,
-                  AppDimensions.spaceSm,
-                  AppDimensions.spaceLg,
-                  AppDimensions.spaceLg,
-                ),
-                child: AppButton(
-                  label: 'Finalize session',
-                  icon: Icons.check_circle_outline_rounded,
-                  isLoading: state.isSaving,
-                  onPressed: () => _confirmFinalize(
-                    context,
-                    ref,
-                    items.length,
-                    holdingCount,
-                  ),
-                ),
-              ),
-            )
-          : null,
       body: RefreshIndicator(
         onRefresh: () => ref
             .read(stockInSessionControllerProvider(sessionId).notifier)
@@ -120,6 +90,16 @@ class StockInDetailScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(AppDimensions.spaceLg),
           children: [
             _SessionCard(session: session),
+            if (canFinalize) ...[
+              const SizedBox(height: AppDimensions.spaceMd),
+              _FinalizeActionCard(
+                itemCount: items.length,
+                holdingCount: holdingCount,
+                isSaving: state.isSaving,
+                onPressed: () =>
+                    _confirmFinalize(context, ref, items.length, holdingCount),
+              ),
+            ],
             const SizedBox(height: AppDimensions.spaceLg),
             _ItemsSection(
               sessionId: sessionId,
@@ -179,7 +159,7 @@ class StockInDetailScreen extends ConsumerWidget {
     if (!context.mounted) return;
     if (success) {
       ref.invalidate(stockInListProvider);
-      context.pushReplacement(RouteNames.stockInConfirmationPath(sessionId));
+      context.pushReplacement(RouteNames.stockInFinalizedPath(sessionId));
     }
   }
 }
@@ -192,13 +172,8 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ContentCard(
       padding: const EdgeInsets.all(AppDimensions.spaceLg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-        border: Border.all(color: AppColors.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -234,6 +209,7 @@ class _SessionCard extends StatelessWidget {
           _kv('Supplier', session.supplierName),
           _kv('PIC', session.picUserName),
           _kv('Date', DateFormatter.toDisplay(session.stockInAt)),
+          _kv('Items', '${session.itemsCount ?? 0}'),
           if (session.remarks != null && session.remarks!.isNotEmpty)
             _kv('Remarks', session.remarks!),
         ],
@@ -280,58 +256,32 @@ class _ItemsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final missingLotCount = items.where((i) => i.missingLotFlag).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section header
-        Row(
-          children: [
-            Text(
-              'Items',
-              style: AppTextStyles.titleSmall.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: AppDimensions.spaceSm),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.primaryContainer,
-                borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
-              ),
-              child: Text(
-                '${items.length}',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            if (items.isNotEmpty &&
-                items.where((i) => i.missingLotFlag).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: AppDimensions.spaceSm),
-                child: Text(
-                  '${items.where((i) => i.missingLotFlag).length} missing lot',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.warning,
-                  ),
-                ),
-              ),
-          ],
+        SectionHeader(
+          title: 'Items',
+          count: items.length,
+          metaText: missingLotCount > 0 ? '$missingLotCount missing lot' : null,
+          trailing: isDraft
+              ? AppButton(
+                label: 'Add item',
+                icon: Icons.add_rounded,
+                size: AppButtonSize.sm,
+                isFullWidth: false,
+                onPressed: () =>
+                  context.push(RouteNames.stockInItemAddPath(sessionId)),
+                )
+              : null,
         ),
         const SizedBox(height: AppDimensions.spaceSm),
 
         // Empty state
         if (items.isEmpty)
-          Container(
-            width: double.infinity,
+          ContentCard(
             padding: const EdgeInsets.all(AppDimensions.space3xl),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-              border: Border.all(color: AppColors.border),
-            ),
             child: Column(
               children: [
                 Icon(
@@ -402,6 +352,54 @@ class _ItemsSection extends ConsumerWidget {
   }
 }
 
+class _FinalizeActionCard extends StatelessWidget {
+  const _FinalizeActionCard({
+    required this.itemCount,
+    required this.holdingCount,
+    required this.isSaving,
+    required this.onPressed,
+  });
+
+  final int itemCount;
+  final int holdingCount;
+  final bool isSaving;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ContentCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ready to finalize',
+            style: AppTextStyles.titleSmall.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spaceXs),
+          Text(
+            holdingCount > 0
+                ? 'This will finalize $itemCount item${itemCount == 1 ? '' : 's'} and move $holdingCount missing-lot item${holdingCount == 1 ? '' : 's'} to holding.'
+                : 'This will finalize $itemCount captured item${itemCount == 1 ? '' : 's'} and create inventory lots.',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          AppButton(
+            label: 'Finalize session',
+            icon: Icons.check_circle_outline_rounded,
+            isFullWidth: false,
+            isLoading: isSaving,
+            onPressed: isSaving ? null : onPressed,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ItemTile extends StatelessWidget {
   const _ItemTile({
     required this.item,
@@ -451,17 +449,10 @@ class _ItemTile extends StatelessWidget {
     return InkWell(
       onTap: onEdit,
       borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-      child: Container(
-        padding: const EdgeInsets.all(AppDimensions.spaceMd),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-          border: Border.all(
-            color: item.missingLotFlag
-                ? AppColors.warning.withValues(alpha: 0.4)
-                : AppColors.border,
-          ),
-        ),
+      child: ContentCard(
+        borderColor: item.missingLotFlag
+            ? AppColors.warning.withValues(alpha: 0.4)
+            : AppColors.border,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -489,14 +480,12 @@ class _ItemTile extends StatelessWidget {
               item.isSetEntry ? 'Kind' : 'Lot',
               item.isSetEntry ? item.entryKindLabel : item.lotLabel,
             ),
-            if (item.isProductEntry) ...[
-              _kv(
-                'Batch',
-                item.supplierBatchCode.isEmpty ? '-' : item.supplierBatchCode,
-              ),
-              if (item.expiryDate != null)
-                _kv('Expiry', DateFormatter.toDisplay(item.expiryDate!)),
-            ] else if ((item.instrumentSet?.items.isNotEmpty ?? false)) ...[
+            _kv('Qty', '${item.quantity ?? 1}'),
+            _kv('Mfg date', item.manufacturingDateLabel),
+            if (item.expiryDate != null)
+              _kv('Expiry', DateFormatter.toDisplay(item.expiryDate!)),
+            if (item.isSetEntry &&
+                (item.instrumentSet?.items.isNotEmpty ?? false)) ...[
               const SizedBox(height: 6),
               ...item.instrumentSet!.items
                   .take(5)
@@ -540,7 +529,7 @@ class _ItemTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 52,
+            width: 72,
             child: Text(
               k,
               style: AppTextStyles.labelSmall.copyWith(
@@ -581,25 +570,12 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.spaceMd),
-      decoration: BoxDecoration(
-        color: AppColors.errorContainer,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
+    return StatusBanner(
+      message: message,
+      icon: Icons.warning_amber_rounded,
+      foregroundColor: AppColors.error,
+      backgroundColor: AppColors.errorContainer,
+      borderColor: AppColors.error.withValues(alpha: 0.3),
     );
   }
 }

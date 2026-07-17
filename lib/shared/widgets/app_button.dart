@@ -80,9 +80,18 @@ class AppButton extends StatelessWidget {
       child: _buildButton(child),
     );
 
-    return isFullWidth
-        ? SizedBox(width: double.infinity, child: button)
-        : button;
+    if (!isFullWidth) {
+      return IntrinsicWidth(child: button);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth) {
+          return IntrinsicWidth(child: button);
+        }
+        return SizedBox(width: double.infinity, child: button);
+      },
+    );
   }
 
   Widget _buildButton(Widget child) {

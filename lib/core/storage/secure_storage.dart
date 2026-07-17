@@ -7,9 +7,7 @@ import '../constants/storage_keys.dart';
 class SecureStorage {
   SecureStorage._();
 
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static const _storage = FlutterSecureStorage();
 
   // ── Access Token ─────────────────────────────────────────────
   static Future<void> setAccessToken(String token) async =>

@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+
 import '../../../../core/auth/auth_session_provider.dart';
 import '../../../../core/storage/auth_preferences.dart';
 import '../../../../core/storage/secure_storage.dart';
@@ -63,6 +65,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> checkAuthStatus() async {
     final rememberMe = await AuthPreferences.getRememberMe();
+
     state = state.copyWith(
       status: AuthStatus.loading,
       error: null,
@@ -78,6 +81,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
 
         _ref.read(authSessionProvider.notifier).clear();
+
         state = AuthState(
           status: AuthStatus.unauthenticated,
           rememberMe: rememberMe,
@@ -87,8 +91,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (isAuth) {
         final user = await _repository.getMe();
+
         if (!user.hasSupportedMobileRole) {
           await SecureStorage.clearAll();
+
           state = AuthState(
             status: AuthStatus.error,
             error: _unsupportedRoleMessage,
@@ -98,6 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
 
         _ref.read(authSessionProvider.notifier).clear();
+
         state = AuthState(
           status: AuthStatus.authenticated,
           user: user,
@@ -119,6 +126,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> login(String email, String password) async {
     final rememberMe = state.rememberMe;
+
     state = state.copyWith(status: AuthStatus.loading, error: null);
     _ref.read(authSessionProvider.notifier).clear();
 
@@ -128,6 +136,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (!user.hasSupportedMobileRole) {
         await SecureStorage.clearAll();
+
         state = AuthState(
           status: AuthStatus.error,
           error: _unsupportedRoleMessage,
@@ -137,6 +146,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       await AuthPreferences.setRememberMe(rememberMe);
+
       state = AuthState(
         status: AuthStatus.authenticated,
         user: user,
@@ -153,6 +163,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     final rememberMe = state.rememberMe;
+
     state = state.copyWith(status: AuthStatus.loading, error: null);
     _ref.read(authSessionProvider.notifier).clear();
 
@@ -169,6 +180,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ref, ref.watch(authRepositoryProvider));
-});final currentUserProvider = Provider<UserModel?>((ref) {
+});
+
+final currentUserProvider = Provider<UserModel?>((ref) {
   return ref.watch(authProvider).user;
 });

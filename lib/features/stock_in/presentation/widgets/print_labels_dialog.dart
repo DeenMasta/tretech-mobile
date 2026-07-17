@@ -19,10 +19,7 @@ class PrintLabelsDialog extends ConsumerStatefulWidget {
   final List<StockInItemModel> items;
 
   /// Show the dialog.
-  static Future<void> show(
-    BuildContext context,
-    List<StockInItemModel> items,
-  ) {
+  static Future<void> show(BuildContext context, List<StockInItemModel> items) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -71,8 +68,9 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
   }
 
   Future<void> _print(String macAddress) async {
-    final selectedItems =
-        _printable.where((i) => _selected.contains(i.lotId)).toList();
+    final selectedItems = _printable
+        .where((i) => _selected.contains(i.lotId))
+        .toList();
 
     await ref
         .read(qrPrintNotifierProvider.notifier)
@@ -92,8 +90,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
         return Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -119,13 +116,17 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.print_rounded,
-                        size: 22, color: AppColors.primary),
+                    Icon(
+                      Icons.print_rounded,
+                      size: 22,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: AppDimensions.spaceSm),
                     Text(
                       'Print QR Labels',
-                      style: AppTextStyles.titleSmall
-                          .copyWith(fontWeight: FontWeight.w700),
+                      style: AppTextStyles.titleSmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const Spacer(),
                     IconButton(
@@ -160,8 +161,12 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                     horizontal: AppDimensions.spaceLg,
                     vertical: AppDimensions.spaceSm,
                   ),
-                  child: _printerBanner(context, printer.isConfigured,
-                      printer.printerName, printer.macAddress),
+                  child: _printerBanner(
+                    context,
+                    printer.isConfigured,
+                    printer.printerName,
+                    printer.macAddress,
+                  ),
                 ),
 
                 if (_printable.isEmpty) ...[
@@ -170,13 +175,17 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.print_disabled_rounded,
-                              size: 40, color: AppColors.textMuted),
+                          Icon(
+                            Icons.print_disabled_rounded,
+                            size: 40,
+                            color: AppColors.textMuted,
+                          ),
                           const SizedBox(height: AppDimensions.spaceMd),
                           Text(
                             'No printable lots found.\nItems with missing lots cannot be printed.',
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.textMuted),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textMuted,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -187,7 +196,8 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                   // Select All toggle
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppDimensions.spaceLg),
+                      horizontal: AppDimensions.spaceLg,
+                    ),
                     child: Row(
                       children: [
                         Checkbox(
@@ -198,14 +208,16 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                         ),
                         Text(
                           'Select All (${_printable.length} lots)',
-                          style: AppTextStyles.bodySmall
-                              .copyWith(fontWeight: FontWeight.w600),
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const Spacer(),
                         Text(
                           '${_selected.length} selected',
-                          style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.textMuted),
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -217,7 +229,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                     child: ListView.separated(
                       controller: controller,
                       itemCount: _printable.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         final item = _printable[i];
                         final lotId = item.lotId!;
@@ -229,13 +241,15 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                           controlAffinity: ListTileControlAffinity.leading,
                           title: Text(
                             item.productLabel,
-                            style: AppTextStyles.bodySmall
-                                .copyWith(fontWeight: FontWeight.w600),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           subtitle: Text(
                             item.lot?.lotNumber ?? item.scannedLotNumber ?? '—',
-                            style: AppTextStyles.labelSmall
-                                .copyWith(color: AppColors.textMuted),
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.textMuted,
+                            ),
                           ),
                           secondary: Container(
                             width: 32,
@@ -270,13 +284,16 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                             child: AppButton(
                               label: 'Print All',
                               icon: Icons.print_rounded,
-                              onPressed: !printer.isConfigured ||
-                                      _printable.isEmpty
+                              onPressed:
+                                  !printer.isConfigured || _printable.isEmpty
                                   ? null
                                   : () {
                                       // Select all then print
-                                      setState(() => _selected.addAll(
-                                          _printable.map((i) => i.lotId!)));
+                                      setState(
+                                        () => _selected.addAll(
+                                          _printable.map((i) => i.lotId!),
+                                        ),
+                                      );
                                       _print(printer.macAddress);
                                     },
                             ),
@@ -287,8 +304,8 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                               label: 'Print Selected (${_selected.length})',
                               icon: Icons.checklist_rounded,
                               variant: AppButtonVariant.secondary,
-                              onPressed: !printer.isConfigured ||
-                                      _selected.isEmpty
+                              onPressed:
+                                  !printer.isConfigured || _selected.isEmpty
                                   ? null
                                   : () => _print(printer.macAddress),
                             ),
@@ -325,14 +342,19 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
         ),
         child: Row(
           children: [
-            Icon(Icons.bluetooth_connected_rounded,
-                size: 16, color: AppColors.success),
+            Icon(
+              Icons.bluetooth_connected_rounded,
+              size: 16,
+              color: AppColors.success,
+            ),
             const SizedBox(width: AppDimensions.spaceSm),
             Expanded(
               child: Text(
                 'Printer: $name',
-                style: AppTextStyles.labelSmall
-                    .copyWith(color: AppColors.success, fontWeight: FontWeight.w600),
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -357,7 +379,9 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
           Expanded(
             child: Text(
               'No printer configured.',
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.warning),
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.warning,
+              ),
             ),
           ),
           TextButton(
@@ -389,8 +413,7 @@ class _PrintProgressView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        state.total > 0 ? state.printed / state.total : 0.0;
+    final progress = state.total > 0 ? state.printed / state.total : 0.0;
 
     return Padding(
       padding: const EdgeInsets.all(AppDimensions.spaceLg),
@@ -412,18 +435,20 @@ class _PrintProgressView extends StatelessWidget {
             ),
           ] else if (state.isDone) ...[
             Icon(
-              state.hasErrors ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
+              state.hasErrors
+                  ? Icons.warning_amber_rounded
+                  : Icons.check_circle_rounded,
               size: 56,
-              color:
-                  state.hasErrors ? AppColors.warning : AppColors.success,
+              color: state.hasErrors ? AppColors.warning : AppColors.success,
             ),
             const SizedBox(height: AppDimensions.spaceMd),
             Text(
               state.hasErrors
                   ? 'Printed with ${state.errors.length} error(s)'
                   : 'All ${state.total} label(s) printed successfully!',
-              style: AppTextStyles.titleSmall
-                  .copyWith(fontWeight: FontWeight.w700),
+              style: AppTextStyles.titleSmall.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
               textAlign: TextAlign.center,
             ),
             if (state.hasErrors) ...[
@@ -432,8 +457,7 @@ class _PrintProgressView extends StatelessWidget {
                 padding: const EdgeInsets.all(AppDimensions.spaceMd),
                 decoration: BoxDecoration(
                   color: AppColors.warningContainer,
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.radiusMd),
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
                   border: Border.all(
                     color: AppColors.warning.withValues(alpha: 0.3),
                   ),
@@ -446,8 +470,9 @@ class _PrintProgressView extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Text(
                             '• $e',
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.warning),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.warning,
+                            ),
                           ),
                         ),
                       )

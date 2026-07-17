@@ -77,13 +77,16 @@ class StockInItemModel {
     required this.id,
     required this.stockInId,
     required this.entryKind,
-    required this.supplierBatchCode,
+    this.supplierBatchCode = '',
     this.productId,
     this.instrumentSetId,
     this.product,
     this.instrumentSet,
     this.lotId,
     this.lot,
+    this.quantity,
+    this.manufacturingDate,
+    this.manufacturingDateRaw,
     this.scannedLotNumber,
     this.expiryDate,
     this.lotEntryMode = LotEntryMode.scan,
@@ -118,6 +121,11 @@ class StockInItemModel {
       lot: json['lot'] is Map<String, dynamic>
           ? StockInItemLotBrief.fromJson(json['lot'] as Map<String, dynamic>)
           : null,
+      quantity: (json['quantity'] as num?)?.toInt(),
+      manufacturingDate: DateTime.tryParse(
+        (json['manufacturing_date'] ?? '').toString(),
+      ),
+      manufacturingDateRaw: json['manufacturing_date']?.toString(),
       scannedLotNumber: json['scanned_lot_number'] as String?,
       expiryDate: DateTime.tryParse((json['expiry_date'] ?? '').toString()),
       lotEntryMode: LotEntryModeX.parse(json['lot_entry_mode'] as String?),
@@ -143,6 +151,9 @@ class StockInItemModel {
   final InstrumentSetModel? instrumentSet;
   final int? lotId;
   final StockInItemLotBrief? lot;
+  final int? quantity;
+  final DateTime? manufacturingDate;
+  final String? manufacturingDateRaw;
   final String? scannedLotNumber;
   final DateTime? expiryDate;
   final LotEntryMode lotEntryMode;
@@ -193,5 +204,17 @@ class StockInItemModel {
       return 'Auto-generate on finalize';
     }
     return '-';
+  }
+
+  String get manufacturingDateLabel {
+    if (manufacturingDate != null) {
+      final year = manufacturingDate!.year.toString().padLeft(4, '0');
+      final month = manufacturingDate!.month.toString().padLeft(2, '0');
+      final day = manufacturingDate!.day.toString().padLeft(2, '0');
+      return '$year-$month-$day';
+    }
+
+    final raw = manufacturingDateRaw?.trim() ?? '';
+    return raw.isEmpty ? '-' : raw;
   }
 }

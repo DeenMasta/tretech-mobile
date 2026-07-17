@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'router/app_router.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_mode_provider.dart';
 import 'core/constants/app_constants.dart';
 
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── System UI ──────────────────────────────────────────────
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF0F1117),
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Color(0xFF0F1117),
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
   // Lock to portrait + landscape (allow both for tablet support)
   await SystemChrome.setPreferredOrientations([
@@ -34,9 +35,7 @@ Future<void> main() async {
 
   runApp(
     // Riverpod root — wraps the entire widget tree
-    const ProviderScope(
-      child: TretechApp(),
-    ),
+    const ProviderScope(child: TretechApp()),
   );
 }
 
@@ -50,8 +49,7 @@ class TretechApp extends ConsumerWidget {
 
     // Resolve the effective brightness so the runtime AppColors getters
     // (read inside screen widgets) match the ThemeData we hand to MaterialApp.
-    final platformBrightness =
-        MediaQuery.platformBrightnessOf(context);
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
     final effectiveBrightness = switch (themeMode) {
       ThemeMode.light => Brightness.light,
       ThemeMode.dark => Brightness.dark,
@@ -72,4 +70,3 @@ class TretechApp extends ConsumerWidget {
     );
   }
 }
-

@@ -202,7 +202,6 @@ class StockInRepository {
     StockInEntryKind entryKind = StockInEntryKind.product,
     int? productId,
     int? instrumentSetId,
-    String? supplierBatchCode,
     String? scannedLotNumber,
     DateTime? expiryDate,
     LotEntryMode lotEntryMode = LotEntryMode.scan,
@@ -219,8 +218,6 @@ class StockInRepository {
           'product_id': productId,
         if (entryKind == StockInEntryKind.set && instrumentSetId != null)
           'instrument_set_id': instrumentSetId,
-        if (entryKind == StockInEntryKind.product)
-          'supplier_batch_code': supplierBatchCode,
         if (entryKind == StockInEntryKind.product)
           'lot_entry_mode': lotEntryMode.apiValue,
         if (entryKind == StockInEntryKind.product)
@@ -266,7 +263,6 @@ class StockInRepository {
     int itemId, {
     int? productId,
     int? instrumentSetId,
-    String? supplierBatchCode,
     String? scannedLotNumber,
     bool clearLot = false,
     DateTime? expiryDate,
@@ -282,9 +278,6 @@ class StockInRepository {
       if (productId != null) payload['product_id'] = productId;
       if (instrumentSetId != null) {
         payload['instrument_set_id'] = instrumentSetId;
-      }
-      if (supplierBatchCode != null) {
-        payload['supplier_batch_code'] = supplierBatchCode;
       }
       if (missingLotFlag != null) payload['missing_lot_flag'] = missingLotFlag;
       if (lotEntryMode != null) {
@@ -319,43 +312,6 @@ class StockInRepository {
 
       final response = await _dio.patch<Map<String, dynamic>>(
         ApiEndpoints.stockInSessionItem(sessionId, itemId),
-        data: payload,
-      );
-      return StockInItemModel.fromJson(_unwrap(response.data ?? {}));
-    } on DioException catch (e) {
-      throw _wrap(e.error ?? const UnknownException());
-    }
-  }
-
-  Future<StockInItemModel> correctItem(
-    int sessionId,
-    int itemId, {
-    String? lotNumber,
-    String? supplierBatchCode,
-    DateTime? expiryDate,
-    required String adminReason,
-  }) async {
-    try {
-      final payload = <String, dynamic>{'admin_reason': adminReason.trim()};
-      if (lotNumber != null) {
-        payload['lot_number'] = lotNumber.trim().isEmpty
-            ? null
-            : lotNumber.trim();
-      }
-      if (supplierBatchCode != null) {
-        payload['supplier_batch_code'] = supplierBatchCode.trim().isEmpty
-            ? null
-            : supplierBatchCode.trim();
-      }
-      if (expiryDate != null) {
-        payload['expiry_date'] =
-            '${expiryDate.year.toString().padLeft(4, '0')}-'
-            '${expiryDate.month.toString().padLeft(2, '0')}-'
-            '${expiryDate.day.toString().padLeft(2, '0')}';
-      }
-
-      final response = await _dio.patch<Map<String, dynamic>>(
-        ApiEndpoints.stockInSessionItemCorrect(sessionId, itemId),
         data: payload,
       );
       return StockInItemModel.fromJson(_unwrap(response.data ?? {}));

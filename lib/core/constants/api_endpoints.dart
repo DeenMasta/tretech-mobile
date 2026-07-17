@@ -28,8 +28,6 @@ abstract final class ApiEndpoints {
   static String stockInSessionItems(int id) => '$stockInSessions/$id/items';
   static String stockInSessionItem(int sessionId, int itemId) =>
       '$stockInSessions/$sessionId/items/$itemId';
-  static String stockInSessionItemCorrect(int sessionId, int itemId) =>
-      '$stockInSessions/$sessionId/items/$itemId/correct';
   static String stockInSessionReview(int id) => '$stockInSessions/$id/review';
   static String stockInSessionFinalize(int id) =>
       '$stockInSessions/$id/finalize';

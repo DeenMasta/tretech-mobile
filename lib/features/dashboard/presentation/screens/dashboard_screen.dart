@@ -110,7 +110,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 horizontal: AppDimensions.spaceMd,
               ),
               itemCount: _navItems.length,
-              separatorBuilder: (_, __) =>
+              separatorBuilder: (_,_) =>
                   const SizedBox(height: AppDimensions.spaceXs),
               itemBuilder: (_, i) => _buildNavItem(_navItems[i], i),
             ),

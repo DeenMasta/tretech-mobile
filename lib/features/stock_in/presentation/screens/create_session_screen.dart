@@ -8,6 +8,8 @@ import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/content_card.dart';
+import '../../../../shared/widgets/section_header.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/supplier_model.dart';
 import '../../data/repositories/master_data_repository.dart';
@@ -31,6 +33,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   SupplierModel? _supplier;
   DateTime _stockInAt = DateTime.now();
   bool _saving = false;
+  bool _showSupplierError = false;
 
   StockInMasterDataRepository get _masterRepo =>
       ref.read(stockInMasterDataRepositoryProvider);
@@ -48,7 +51,10 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       repository: _masterRepo,
     );
     if (selected == null || !mounted) return;
-    setState(() => _supplier = selected);
+    setState(() {
+      _supplier = selected;
+      _showSupplierError = false;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -76,6 +82,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
       return;
     }
     if (_supplier == null || currentUser == null) {
+      setState(() => _showSupplierError = _supplier == null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Supplier and PIC are required.')),
       );
@@ -124,6 +131,42 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
           style: AppTextStyles.titleMedium,
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(
+            AppDimensions.spaceLg,
+            AppDimensions.spaceMd,
+            AppDimensions.spaceLg,
+            AppDimensions.spaceLg,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.sidebarBg,
+            border: Border(top: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: 'Back',
+                  variant: AppButtonVariant.ghost,
+                  isFullWidth: false,
+                  onPressed: _saving ? null : () => context.pop(),
+                ),
+              ),
+              const SizedBox(width: AppDimensions.spaceMd),
+              Expanded(
+                child: AppButton(
+                  label: 'Create session',
+                  isLoading: _saving,
+                  isFullWidth: false,
+                  onPressed: _saving ? null : _submit,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -132,65 +175,102 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
             children: [
               Text(
                 'Capture the stock-in header before items are added.',
-                style: AppTextStyles.bodySmall.copyWith(
+                style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
+              const SizedBox(height: AppDimensions.spaceSm),
+              Text(
+                'After save, the draft session opens so you can add product or set entries.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
               const SizedBox(height: AppDimensions.spaceLg),
-              _PickerField(
-                label: 'Supplier',
-                value: _supplier?.supplierName,
-                hint: 'Tap to search suppliers',
-                icon: Icons.local_shipping_outlined,
-                onTap: _pickSupplier,
+              ContentCard(
+                padding: const EdgeInsets.all(AppDimensions.spaceLg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Receiving session'),
+                    const SizedBox(height: AppDimensions.spaceXs),
+                    Text(
+                      'Match the web draft-session flow before item capture starts.',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceLg),
+                    _PickerField(
+                      label: 'Supplier',
+                      value: _supplier?.supplierName,
+                      hint: 'Choose supplier',
+                      helperText: 'Search active suppliers',
+                      icon: Icons.local_shipping_outlined,
+                      onTap: _pickSupplier,
+                      errorText: _showSupplierError
+                          ? 'Supplier is required.'
+                          : null,
+                    ),
+                    const SizedBox(height: AppDimensions.spaceMd),
+                    AppTextField(
+                      controller: _doCtl,
+                      label: 'DO number',
+                      hint: 'DO-2026-001',
+                      textInputAction: TextInputAction.next,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'DO number is required.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppDimensions.spaceMd),
+                    _PickerField(
+                      label: 'Stock-in date',
+                      value: DateFormatter.toDisplay(_stockInAt),
+                      hint: 'Pick stock-in date',
+                      helperText: 'Defaults to today',
+                      icon: Icons.event_outlined,
+                      trailingIcon: Icons.calendar_today_outlined,
+                      onTap: _pickDate,
+                    ),
+                    const SizedBox(height: AppDimensions.spaceMd),
+                    _ReadOnlyField(
+                      label: 'PIC user',
+                      value: currentUser?.name ?? '-',
+                      helperText: 'Auto-filled from your account',
+                      icon: Icons.person_outline,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppDimensions.spaceMd),
-              AppTextField(
-                controller: _doCtl,
-                label: 'DO number',
-                hint: 'DO-2026-001',
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'DO number is required.';
-                  }
-                  return null;
-                },
+              const SizedBox(height: AppDimensions.spaceLg),
+              ContentCard(
+                padding: const EdgeInsets.all(AppDimensions.spaceLg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(title: 'Notes'),
+                    const SizedBox(height: AppDimensions.spaceXs),
+                    Text(
+                      'Optional receiving context for downstream review.',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceLg),
+                    AppTextField(
+                      controller: _remarksCtl,
+                      label: 'Remarks',
+                      hint: 'Enter any notes for the receiving team',
+                      maxLines: 4,
+                      textInputAction: TextInputAction.done,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppDimensions.spaceMd),
-              _PickerField(
-                label: 'Stock-in date',
-                value: DateFormatter.toDisplay(_stockInAt),
-                hint: 'Pick stock-in date',
-                helperText: 'Defaults to today',
-                icon: Icons.event_outlined,
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: AppDimensions.spaceMd),
-              _ReadOnlyField(
-                label: 'PIC user',
-                value: currentUser?.name ?? '-',
-                helperText: 'Auto-filled from your account',
-                icon: Icons.person_outline,
-              ),
-              const SizedBox(height: AppDimensions.spaceMd),
-              AppTextField(
-                controller: _remarksCtl,
-                label: 'Remarks',
-                hint: 'Enter any notes for the receiving team',
-                maxLines: 3,
-              ),
-              const SizedBox(height: AppDimensions.space3xl),
-              AppButton(
-                label: 'Create session',
-                isLoading: _saving,
-                onPressed: _saving ? null : _submit,
-              ),
-              const SizedBox(height: AppDimensions.spaceMd),
-              AppButton(
-                label: 'Back',
-                variant: AppButtonVariant.ghost,
-                onPressed: _saving ? null : () => context.pop(),
-              ),
+              const SizedBox(height: AppDimensions.space5xl),
             ],
           ),
         ),
@@ -225,13 +305,24 @@ class _ReadOnlyField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        InputDecorator(
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, size: 18),
-            filled: true,
-            fillColor: AppColors.surfaceElevated,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spaceMd,
+            vertical: AppDimensions.spaceMd,
           ),
-          child: Text(value, style: AppTextStyles.bodyMedium),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.textMuted),
+              const SizedBox(width: AppDimensions.spaceMd),
+              Expanded(child: Text(value, style: AppTextStyles.bodyMedium)),
+            ],
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -251,13 +342,17 @@ class _PickerField extends StatelessWidget {
     required this.onTap,
     this.value,
     this.helperText,
+    this.errorText,
+    this.trailingIcon = Icons.search_rounded,
   });
 
   final String label;
   final String hint;
   final String? value;
   final String? helperText;
+  final String? errorText;
   final IconData icon;
+  final IconData trailingIcon;
   final VoidCallback onTap;
 
   @override
@@ -278,24 +373,45 @@ class _PickerField extends StatelessWidget {
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-          child: InputDecorator(
-            decoration: InputDecoration(
-              prefixIcon: Icon(icon, size: 18),
-              suffixIcon: const Icon(Icons.search_rounded, size: 18),
-              filled: true,
-              fillColor: AppColors.surfaceElevated,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spaceMd,
+              vertical: AppDimensions.spaceMd,
             ),
-            child: Text(
-              hasValue ? value! : hint,
-              style: hasValue
-                  ? AppTextStyles.bodyMedium
-                  : AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textMuted,
-                    ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+              border: Border.all(
+                color: errorText == null ? AppColors.border : AppColors.error,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: AppColors.textMuted),
+                const SizedBox(width: AppDimensions.spaceMd),
+                Expanded(
+                  child: Text(
+                    hasValue ? value! : hint,
+                    style: hasValue
+                        ? AppTextStyles.bodyMedium
+                        : AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spaceMd),
+                Icon(trailingIcon, size: 18, color: AppColors.textMuted),
+              ],
             ),
           ),
         ),
-        if (helperText != null) ...[
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText!,
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
+          ),
+        ] else if (helperText != null) ...[
           const SizedBox(height: 6),
           Text(
             helperText!,

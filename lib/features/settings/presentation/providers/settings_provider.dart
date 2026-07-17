@@ -2,12 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/printer_settings_model.dart';
 import '../../data/repositories/settings_repository.dart';
 
-class SettingsNotifier extends StateNotifier<PrinterSettingsModel> {
-  SettingsNotifier(this._repo) : super(const PrinterSettingsModel.empty()) {
-    _load();
-  }
+class SettingsNotifier extends Notifier<PrinterSettingsModel> {
+  late final SettingsRepository _repo;
 
-  final SettingsRepository _repo;
+  @override
+  PrinterSettingsModel build() {
+    _repo = ref.watch(_settingsRepoProvider);
+    _load();
+    return const PrinterSettingsModel.empty();
+  }
 
   Future<void> _load() async {
     state = await _repo.load();
@@ -36,6 +39,4 @@ final _settingsRepoProvider = Provider<SettingsRepository>(
 );
 
 final settingsProvider =
-    StateNotifierProvider<SettingsNotifier, PrinterSettingsModel>((ref) {
-  return SettingsNotifier(ref.watch(_settingsRepoProvider));
-});
+    NotifierProvider<SettingsNotifier, PrinterSettingsModel>(SettingsNotifier.new);

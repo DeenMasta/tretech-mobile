@@ -12,8 +12,8 @@ class StockInStatusBadge extends StatelessWidget {
     final lower = status.toLowerCase();
     final (label, badgeStatus) = switch (lower) {
       'draft' => ('Draft', BadgeStatus.warning),
-      'confirmed' => ('Confirmed', BadgeStatus.success),
-      'finalized' => ('Confirmed', BadgeStatus.success),
+      'confirmed' => ('Finalized', BadgeStatus.success),
+      'finalized' => ('Finalized', BadgeStatus.success),
       'cancelled' => ('Cancelled', BadgeStatus.error),
       _ => (status.isEmpty ? 'Unknown' : status, BadgeStatus.neutral),
     };

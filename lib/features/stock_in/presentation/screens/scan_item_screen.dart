@@ -309,7 +309,7 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
 
     ProductModel? product;
     try {
-      final cached = ref.read(productsProvider).valueOrNull ?? const [];
+      final cached = ref.read(productsProvider).value ?? const [];
       for (final p in cached) {
         if (p.refNum.toUpperCase() == result.value.toUpperCase()) {
           product = p;

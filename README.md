@@ -2,6 +2,11 @@
 
 Tretech Warehouse & Inventory Mobile App
 
+## Operational Notes
+
+- Stock-in item correction is intentionally not available in mobile.
+- Any finalized stock-in item correction must be done in the web app by admin users.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

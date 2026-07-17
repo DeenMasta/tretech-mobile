@@ -37,7 +37,6 @@ class StockInItemFormScreen extends ConsumerStatefulWidget {
 
 class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   final _lotCtl = TextEditingController();
-  final _batchCtl = TextEditingController();
   final _overrideCtl = TextEditingController();
   final _remarksCtl = TextEditingController();
 
@@ -51,7 +50,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
 
   String? _productError;
   String? _instrumentSetError;
-  String? _batchError;
   String? _overrideError;
 
   bool _initialised = false;
@@ -62,7 +60,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   @override
   void dispose() {
     _lotCtl.dispose();
-    _batchCtl.dispose();
     _overrideCtl.dispose();
     _remarksCtl.dispose();
     super.dispose();
@@ -97,7 +94,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     }
 
     _lotCtl.text = item.scannedLotNumber ?? '';
-    _batchCtl.text = item.supplierBatchCode;
     _expiryDate = item.expiryDate;
     _lotEntryMode = item.lotEntryMode;
     _missingLotFlag = item.missingLotFlag;
@@ -125,9 +121,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _instrumentSetError = !_isProductEntry && _instrumentSet == null
           ? 'Please select an instrument set.'
           : null;
-      _batchError = _isProductEntry && _batchCtl.text.trim().isEmpty
-          ? 'Supplier batch code is required.'
-          : null;
       _overrideError =
           _requiresOverrideReason && _overrideCtl.text.trim().isEmpty
           ? 'Override reason is required for manual or missing-lot capture.'
@@ -136,7 +129,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
 
     return _productError == null &&
         _instrumentSetError == null &&
-        _batchError == null &&
         _overrideError == null;
   }
 
@@ -154,7 +146,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                 ? await notifier.updateItem(
                     widget.itemId!,
                     productId: _product!.id,
-                    supplierBatchCode: _batchCtl.text.trim(),
                     scannedLotNumber: _requiresLot && !_missingLotFlag
                         ? _normalizedLot
                         : null,
@@ -176,7 +167,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                           ? _normalizedLot
                           : null,
                       expiryDate: _requiresExpiry ? _expiryDate : null,
-                      supplierBatchCode: _batchCtl.text.trim(),
                       lotEntryMode: _lotEntryMode,
                       expiryEntryMode: LotEntryMode.scan,
                       missingLotFlag: _requiresLot ? _missingLotFlag : false,
@@ -220,7 +210,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
               ? _normalizedLot
               : null,
           expiryDate: _requiresExpiry ? _expiryDate : null,
-          supplierBatchCode: _batchCtl.text.trim(),
           lotEntryMode: _lotEntryMode,
           expiryEntryMode: LotEntryMode.scan,
           missingLotFlag: _requiresLot ? _missingLotFlag : false,
@@ -233,7 +222,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
 
       if (success && mounted) {
         final keepProduct = _product;
-        final keepBatch = _batchCtl.text;
         setState(() {
           _lotCtl.clear();
           _expiryDate = null;
@@ -242,9 +230,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
           _overrideCtl.clear();
           _remarksCtl.clear();
           _product = keepProduct;
-          _batchCtl.text = keepBatch;
           _productError = null;
-          _batchError = null;
           _overrideError = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -331,7 +317,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _product = null;
       _instrumentSet = null;
       _lotCtl.clear();
-      _batchCtl.clear();
       _overrideCtl.clear();
       _remarksCtl.clear();
       _expiryDate = null;
@@ -339,7 +324,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _missingLotFlag = false;
       _productError = null;
       _instrumentSetError = null;
-      _batchError = null;
       _overrideError = null;
     });
   }
@@ -349,10 +333,9 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     final state = ref.watch(stockInSessionControllerProvider(widget.sessionId));
     final errorFromProvider = state.error;
     final productCache =
-        ref.watch(productsProvider).valueOrNull ?? const <ProductModel>[];
+        ref.watch(productsProvider).value ?? const <ProductModel>[];
     final instrumentSetCache =
-        ref.watch(instrumentSetsProvider).valueOrNull ??
-        const <InstrumentSetModel>[];
+        ref.watch(instrumentSetsProvider).value ?? const <InstrumentSetModel>[];
 
     if (widget.isEdit && !_initialised) {
       final item = state.items.firstWhere(
@@ -361,7 +344,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
           id: 0,
           stockInId: 0,
           entryKind: StockInEntryKind.product,
-          supplierBatchCode: '',
         ),
       );
       if (item.id != 0) {
@@ -400,6 +382,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                     ? Icons.save_outlined
                     : Icons.add_circle_outline_rounded,
                 isLoading: _saving,
+                isFullWidth: false,
                 onPressed: _saving ? null : _submit,
               ),
               if (!widget.isEdit && _isProductEntry) ...[
@@ -409,6 +392,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                   variant: AppButtonVariant.secondary,
                   icon: Icons.add_rounded,
                   isLoading: _saving,
+                  isFullWidth: false,
                   onPressed: _saving ? null : _submitAndAddAnother,
                 ),
               ],
@@ -416,6 +400,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
               AppButton(
                 label: 'Cancel',
                 variant: AppButtonVariant.ghost,
+                isFullWidth: false,
                 onPressed: _saving ? null : () => context.pop(),
               ),
             ],
@@ -497,7 +482,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                 const SizedBox(height: AppDimensions.spaceXs),
                 Text(
                   _isProductEntry
-                      ? 'Use product capture for standard lots and supplier batches.'
+                      ? 'Use product capture for standard lots and expiry details.'
                       : 'Use set capture when the incoming line represents a full instrument set instance.',
                   style: AppTextStyles.bodySmall,
                 ),
@@ -639,21 +624,11 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
 
   Widget _buildDetailsSection() {
     return _SectionCard(
-      title: 'Batch and notes',
-      description: 'Record the supplier batch and any receiving exceptions.',
+      title: 'Notes',
+      description: 'Record receiving exceptions and any optional notes.',
       child: Column(
         children: [
-          AppTextField(
-            controller: _batchCtl,
-            label: 'Supplier batch code *',
-            hint: 'e.g. BATCH-2026-001',
-            prefixIcon: Icons.tag_rounded,
-            errorText: _batchError,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() => _batchError = null),
-          ),
           if (_requiresOverrideReason) ...[
-            const SizedBox(height: AppDimensions.spaceMd),
             AppTextField(
               controller: _overrideCtl,
               label: 'Override reason *',

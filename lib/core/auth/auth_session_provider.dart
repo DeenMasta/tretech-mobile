@@ -10,8 +10,11 @@ class AuthSessionState {
   }
 }
 
-class AuthSessionNotifier extends StateNotifier<AuthSessionState> {
-  AuthSessionNotifier() : super(const AuthSessionState());
+class AuthSessionNotifier extends Notifier<AuthSessionState> {
+  @override
+  AuthSessionState build() {
+    return const AuthSessionState();
+  }
 
   void markExpired() {
     state = state.copyWith(isExpired: true);
@@ -24,6 +27,4 @@ class AuthSessionNotifier extends StateNotifier<AuthSessionState> {
 }
 
 final authSessionProvider =
-    StateNotifierProvider<AuthSessionNotifier, AuthSessionState>((ref) {
-      return AuthSessionNotifier();
-    });
+    NotifierProvider<AuthSessionNotifier, AuthSessionState>(AuthSessionNotifier.new);

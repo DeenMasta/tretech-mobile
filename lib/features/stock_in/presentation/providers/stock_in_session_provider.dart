@@ -50,7 +50,6 @@ class ItemDraft {
     this.product,
     this.scannedLotNumber,
     this.expiryDate,
-    this.supplierBatchCode = '',
     this.lotEntryMode = LotEntryMode.scan,
     this.expiryEntryMode = LotEntryMode.scan,
     this.missingLotFlag = false,
@@ -62,7 +61,6 @@ class ItemDraft {
   final ProductModel? product;
   final String? scannedLotNumber;
   final DateTime? expiryDate;
-  final String supplierBatchCode;
   final LotEntryMode lotEntryMode;
   final LotEntryMode expiryEntryMode;
   final bool missingLotFlag;
@@ -75,9 +73,8 @@ class ItemDraft {
   bool get hasLot => (scannedLotNumber?.isNotEmpty ?? false) || missingLotFlag;
   bool get lotSatisfied => !requiresLot || hasLot;
   bool get hasExpiry => expiryDate != null;
-  bool get hasBatch => supplierBatchCode.trim().isNotEmpty;
 
-  bool get readyToSubmit => hasProduct && lotSatisfied && hasBatch;
+  bool get readyToSubmit => hasProduct && lotSatisfied;
 
   bool get requiresOverrideReason =>
       missingLotFlag ||
@@ -88,7 +85,6 @@ class ItemDraft {
     ProductModel? product,
     String? scannedLotNumber,
     DateTime? expiryDate,
-    String? supplierBatchCode,
     LotEntryMode? lotEntryMode,
     LotEntryMode? expiryEntryMode,
     bool? missingLotFlag,
@@ -105,7 +101,6 @@ class ItemDraft {
           ? null
           : (scannedLotNumber ?? this.scannedLotNumber),
       expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
-      supplierBatchCode: supplierBatchCode ?? this.supplierBatchCode,
       lotEntryMode: lotEntryMode ?? this.lotEntryMode,
       expiryEntryMode: expiryEntryMode ?? this.expiryEntryMode,
       missingLotFlag: missingLotFlag ?? this.missingLotFlag,
@@ -116,16 +111,21 @@ class ItemDraft {
   }
 }
 
-class StockInSessionController extends StateNotifier<StockInSessionState> {
-  StockInSessionController(this._ref, this._sessionId)
-    : super(const StockInSessionState()) {
-    _load();
+class StockInSessionController extends Notifier<StockInSessionState> {
+  StockInSessionController(this._sessionId);
+  final int _sessionId;
+  bool _initialLoadStarted = false;
+
+  @override
+  StockInSessionState build() {
+    if (!_initialLoadStarted) {
+      _initialLoadStarted = true;
+      Future<void>.microtask(_load);
+    }
+    return const StockInSessionState(isLoading: true);
   }
 
-  final Ref _ref;
-  final int _sessionId;
-
-  StockInRepository get _repo => _ref.read(stockInRepositoryProvider);
+  StockInRepository get _repo => ref.read(stockInRepositoryProvider);
 
   Future<void> _load() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -169,7 +169,6 @@ class StockInSessionController extends StateNotifier<StockInSessionState> {
         session.id,
         entryKind: StockInEntryKind.product,
         productId: draft.product!.id,
-        supplierBatchCode: draft.supplierBatchCode.trim(),
         scannedLotNumber: draft.missingLotFlag
             ? null
             : (draft.scannedLotNumber?.trim().isEmpty ?? true
@@ -218,7 +217,6 @@ class StockInSessionController extends StateNotifier<StockInSessionState> {
   Future<bool> updateItem(
     int itemId, {
     required int productId,
-    required String supplierBatchCode,
     String? scannedLotNumber,
     bool clearLot = false,
     DateTime? expiryDate,
@@ -238,7 +236,6 @@ class StockInSessionController extends StateNotifier<StockInSessionState> {
         session.id,
         itemId,
         productId: productId,
-        supplierBatchCode: supplierBatchCode,
         scannedLotNumber: scannedLotNumber,
         clearLot: clearLot,
         expiryDate: expiryDate,
@@ -327,17 +324,17 @@ class StockInSessionController extends StateNotifier<StockInSessionState> {
 }
 
 /// Per-session controller. Use `.family(sessionId)`.
-final stockInSessionControllerProvider = StateNotifierProvider.autoDispose
-    .family<StockInSessionController, StockInSessionState, int>((
-      ref,
-      sessionId,
-    ) {
-      return StockInSessionController(ref, sessionId);
-    });
+final stockInSessionControllerProvider = NotifierProvider.autoDispose
+    .family<StockInSessionController, StockInSessionState, int>(
+      StockInSessionController.new,
+    );
 
 /// Local-only draft notifier for the in-progress item being scanned.
-class ItemDraftNotifier extends StateNotifier<ItemDraft> {
-  ItemDraftNotifier() : super(const ItemDraft());
+class ItemDraftNotifier extends Notifier<ItemDraft> {
+  @override
+  ItemDraft build() {
+    return const ItemDraft();
+  }
 
   void setProduct(ProductModel product) => state = ItemDraft(product: product);
 
@@ -370,9 +367,6 @@ class ItemDraftNotifier extends StateNotifier<ItemDraft> {
 
   void clearExpiry() => state = state.copyWith(clearExpiry: true);
 
-  void setBatch(String value) =>
-      state = state.copyWith(supplierBatchCode: value);
-
   void setOverrideReason(String? reason) =>
       state = state.copyWith(entryOverrideReason: reason);
 
@@ -385,6 +379,6 @@ class ItemDraftNotifier extends StateNotifier<ItemDraft> {
 }
 
 final itemDraftProvider =
-    StateNotifierProvider.autoDispose<ItemDraftNotifier, ItemDraft>(
-      (ref) => ItemDraftNotifier(),
+    NotifierProvider.autoDispose<ItemDraftNotifier, ItemDraft>(
+      ItemDraftNotifier.new,
     );

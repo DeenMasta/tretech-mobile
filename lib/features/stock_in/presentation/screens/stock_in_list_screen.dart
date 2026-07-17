@@ -88,6 +88,41 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
       ),
       body: Column(
         children: [
+          Container(
+            width: double.infinity,
+            color: AppColors.sidebarBg,
+            padding: const EdgeInsets.fromLTRB(
+              AppDimensions.spaceLg,
+              AppDimensions.spaceMd,
+              AppDimensions.spaceLg,
+              AppDimensions.spaceSm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Stock In',
+                  style: AppTextStyles.titleLarge.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceXs),
+                Text(
+                  'Receive new inventory, manage stock-in sessions, and track incoming shipments.',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceMd),
+                AppButton(
+                  label: 'Create session',
+                  icon: Icons.add_rounded,
+                  isFullWidth: false,
+                  onPressed: () => context.push(RouteNames.stockInCreate),
+                ),
+              ],
+            ),
+          ),
           _buildToolbar(filter),
           Expanded(
             child: pageAsync.when(
@@ -100,13 +135,6 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push(RouteNames.stockInCreate),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New session'),
       ),
     );
   }
@@ -287,7 +315,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
           AppDimensions.space5xl,
         ),
         itemCount: page.items.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (_, _) =>
             const SizedBox(height: AppDimensions.spaceSm),
         itemBuilder: (_, index) => _buildSessionCard(page.items[index]),
       ),
