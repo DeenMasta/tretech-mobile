@@ -24,6 +24,16 @@ abstract final class RouteNames {
   static String stockInConfirmationPath(int id) => '/stock-in/$id/confirmation';
   static const String consignment = '/consignment';
   static const String consignmentCreate = '/consignment/create';
+  static const String consignmentDetail = '/consignment/:id';
+  static String consignmentDetailPath(int id) => '/consignment/$id';
+  static const String consignmentEdit = '/consignment/:id/edit';
+  static String consignmentEditPath(int id) => '/consignment/$id/edit';
+  static const String consignmentItemAdd = '/consignment/:id/items/add';
+  static String consignmentItemAddPath(int id) => '/consignment/$id/items/add';
+  static const String consignmentPostConfirmEdit =
+      '/consignment/:id/post-confirm-edit';
+  static String consignmentPostConfirmEditPath(int id) =>
+      '/consignment/$id/post-confirm-edit';
   static const String returns = '/returns';
   static const String returnsCreate = '/returns/create';
   static const String disposal = '/disposal';

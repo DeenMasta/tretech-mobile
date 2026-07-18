@@ -8,6 +8,9 @@ import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/session_expired_screen.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/consignment/presentation/screens/consignment_screen.dart';
+import '../features/consignment/presentation/screens/consignment_form_screen.dart';
+import '../features/consignment/presentation/screens/consignment_detail_screen.dart';
+import '../features/consignment/presentation/screens/consignment_item_form_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/disposal/presentation/screens/disposal_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
@@ -165,6 +168,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.consignment,
         name: 'consignment',
         builder: (_, _) => const ConsignmentScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.consignmentCreate,
+        name: 'consignmentCreate',
+        builder: (_, _) => const ConsignmentFormScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.consignmentDetail,
+        name: 'consignmentDetail',
+        builder: (_, state) => ConsignmentDetailScreen(
+          consignmentId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.consignmentEdit,
+        name: 'consignmentEdit',
+        builder: (_, state) => ConsignmentFormScreen(
+          consignmentId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.consignmentItemAdd,
+        name: 'consignmentItemAdd',
+        builder: (_, state) => ConsignmentItemFormScreen(
+          consignmentId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.consignmentPostConfirmEdit,
+        name: 'consignmentPostConfirmEdit',
+        builder: (_, state) => ConsignmentFormScreen(
+          consignmentId: int.parse(state.pathParameters['id'] ?? '0'),
+          postConfirmEdit: true,
+        ),
       ),
       GoRoute(
         path: RouteNames.returns,

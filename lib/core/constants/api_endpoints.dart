@@ -39,6 +39,7 @@ abstract final class ApiEndpoints {
   static const String masterDataInstrumentSets =
       '$_base/master-data/instrument-sets';
   static const String masterDataUsers = '$_base/master-data/users';
+  static const String masterDataClients = '$_base/master-data/clients';
 
   // ── QR Labels & Print Jobs ────────────────────────────────────
   static String qrLabelByLot(int lotId) => '$_base/qr-labels/$lotId';
