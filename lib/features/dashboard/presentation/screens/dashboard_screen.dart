@@ -27,14 +27,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _quickRange = 'all'; // '7d' | '30d' | 'all'
 
   static const _navItems = [
-    _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: RouteNames.dashboard),
-    _NavItem(icon: Icons.inventory_2_rounded, label: 'Stock In', route: RouteNames.stockIn),
-    _NavItem(icon: Icons.qr_code_2_rounded, label: 'QR Printing', route: RouteNames.qrPrinting),
-    _NavItem(icon: Icons.local_shipping_rounded, label: 'Consignment', route: RouteNames.consignment),
-    _NavItem(icon: Icons.assignment_return_rounded, label: 'Returns', route: RouteNames.returns),
-    _NavItem(icon: Icons.delete_sweep_rounded, label: 'Disposal', route: RouteNames.disposal),
-    _NavItem(icon: Icons.warehouse_rounded, label: 'Inventory', route: RouteNames.inventory),
-    _NavItem(icon: Icons.settings_rounded, label: 'Settings', route: RouteNames.settings),
+    _NavItem(
+      icon: Icons.dashboard_rounded,
+      label: 'Dashboard',
+      route: RouteNames.dashboard,
+    ),
+    _NavItem(
+      icon: Icons.inventory_2_rounded,
+      label: 'Stock In',
+      route: RouteNames.stockIn,
+    ),
+    _NavItem(
+      icon: Icons.local_shipping_rounded,
+      label: 'Consignment',
+      route: RouteNames.consignment,
+    ),
+    _NavItem(
+      icon: Icons.assignment_return_rounded,
+      label: 'Returns',
+      route: RouteNames.returns,
+    ),
+    _NavItem(
+      icon: Icons.delete_sweep_rounded,
+      label: 'Disposal',
+      route: RouteNames.disposal,
+    ),
+    _NavItem(
+      icon: Icons.warehouse_rounded,
+      label: 'Inventory',
+      route: RouteNames.inventory,
+    ),
+    _NavItem(
+      icon: Icons.settings_rounded,
+      label: 'Settings',
+      route: RouteNames.settings,
+    ),
   ];
 
   @override
@@ -44,9 +71,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: isWide
-          ? null
-          : _buildMobileAppBar(user?.name ?? 'User'),
+      appBar: isWide ? null : _buildMobileAppBar(user?.name ?? 'User'),
       drawer: isWide ? null : _buildDrawer(),
       body: isWide
           ? Row(
@@ -110,7 +135,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 horizontal: AppDimensions.spaceMd,
               ),
               itemCount: _navItems.length,
-              separatorBuilder: (_,_) =>
+              separatorBuilder: (_, _) =>
                   const SizedBox(height: AppDimensions.spaceXs),
               itemBuilder: (_, i) => _buildNavItem(_navItems[i], i),
             ),
@@ -161,7 +186,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
             ),
-
           ),
           if (_sidebarExpanded) ...[
             const SizedBox(width: AppDimensions.spaceMd),
@@ -193,7 +217,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 size: 20,
                 color: AppColors.textMuted,
               ),
-
             ),
           ] else ...[
             const Spacer(),
@@ -204,7 +227,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 size: 20,
                 color: AppColors.textMuted,
               ),
-
             ),
           ],
         ],
@@ -256,8 +278,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       color: isSelected
                           ? AppColors.primary
                           : AppColors.textSecondary,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -269,7 +292,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-
                   ),
               ],
             ],
@@ -333,7 +355,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   size: AppDimensions.iconMd,
                   color: AppColors.textMuted,
                 ),
-
               ],
             ],
           ),
@@ -437,9 +458,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final user = ref.watch(currentUserProvider);
     return Container(
       height: AppDimensions.topBarHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.spaceLg,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.spaceLg),
       decoration: BoxDecoration(
         color: AppColors.sidebarBg,
         border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -507,7 +526,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               color: AppColors.error,
               shape: BoxShape.circle,
             ),
-
           ),
         ),
       ],
@@ -539,8 +557,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final greeting = hour < 12
         ? 'Good Morning'
         : hour < 17
-            ? 'Good Afternoon'
-            : 'Good Evening';
+        ? 'Good Afternoon'
+        : 'Good Evening';
 
     return Container(
       padding: const EdgeInsets.all(AppDimensions.spaceLg),
@@ -617,8 +635,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final label = _quickRange == '7d'
         ? 'Last 7 days'
         : _quickRange == '30d'
-            ? 'Last 30 days'
-            : 'All available dates';
+        ? 'Last 30 days'
+        : 'All available dates';
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimensions.spaceMd,
@@ -661,10 +679,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           vertical: 6,
         ),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.primaryContainer : AppColors.surfaceElevated,
+          color: isActive
+              ? AppColors.primaryContainer
+              : AppColors.surfaceElevated,
           borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
           border: Border.all(
-            color: isActive ? AppColors.primary.withValues(alpha: 0.4) : AppColors.border,
+            color: isActive
+                ? AppColors.primary.withValues(alpha: 0.4)
+                : AppColors.border,
           ),
         ),
         child: Text(
@@ -708,10 +730,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return slice.map((t) => t.transactionCount).toList();
     }
 
-    final stockInSpark =
-        summary != null ? sparkline(summary.stockInTrend) : <int>[];
-    final consignSpark =
-        summary != null ? sparkline(summary.consignmentTrend) : <int>[];
+    final stockInSpark = summary != null
+        ? sparkline(summary.stockInTrend)
+        : <int>[];
+    final consignSpark = summary != null
+        ? sparkline(summary.consignmentTrend)
+        : <int>[];
     final holdingCount = summary?.lotCounts.holding ?? 0;
 
     final cards = <_StatCardData>[
@@ -772,9 +796,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               crossAxisSpacing: AppDimensions.spaceMd,
               mainAxisSpacing: AppDimensions.spaceMd,
               childAspectRatio: 0.95,
-              children: [
-                for (final c in cards) _buildStatCard(c),
-              ],
+              children: [for (final c in cards) _buildStatCard(c)],
             );
           },
         ),
@@ -890,22 +912,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Color _toneColor(_StatTone tone) => switch (tone) {
-        _StatTone.positive => AppColors.success,
-        _StatTone.negative => AppColors.error,
-        _StatTone.neutral => AppColors.textMuted,
-      };
+    _StatTone.positive => AppColors.success,
+    _StatTone.negative => AppColors.error,
+    _StatTone.neutral => AppColors.textMuted,
+  };
 
   String _toneLabel(_StatTone tone) => switch (tone) {
-        _StatTone.positive => 'Healthy',
-        _StatTone.negative => 'Risk',
-        _StatTone.neutral => 'Watch',
-      };
+    _StatTone.positive => 'Healthy',
+    _StatTone.negative => 'Risk',
+    _StatTone.neutral => 'Watch',
+  };
 
   IconData _toneIcon(_StatTone tone) => switch (tone) {
-        _StatTone.positive => Icons.check_circle_rounded,
-        _StatTone.negative => Icons.warning_amber_rounded,
-        _StatTone.neutral => Icons.schedule_rounded,
-      };
+    _StatTone.positive => Icons.check_circle_rounded,
+    _StatTone.negative => Icons.warning_amber_rounded,
+    _StatTone.neutral => Icons.schedule_rounded,
+  };
 
   // ── Section card shell (mirrors web Paper) ───────────────────
   Widget _sectionCard({required Widget child}) {
@@ -935,10 +957,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: AppTextStyles.bodySmall,
-              ),
+              Text(subtitle, style: AppTextStyles.bodySmall),
             ],
           ),
         ),
@@ -963,9 +982,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         cnMap[t.date] = t.transactionCount.toDouble();
       }
     }
-    final allDates = ({...siMap.keys, ...cnMap.keys}.toList()..sort())
-        .take(30)
-        .toList();
+    final allDates = ({
+      ...siMap.keys,
+      ...cnMap.keys,
+    }.toList()..sort()).take(30).toList();
     final stockIn = allDates.isEmpty
         ? <double>[0, 0]
         : allDates.map((d) => siMap[d] ?? 0.0).toList();
@@ -1074,21 +1094,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           Text(
             'Operations action board',
-            style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700),
+            style: AppTextStyles.titleMedium.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: AppDimensions.spaceMd),
           for (var i = 0; i < items.length; i++) ...[
             _actionAlertTile(items[i]),
-            if (i < items.length - 1) const SizedBox(height: AppDimensions.spaceXs),
+            if (i < items.length - 1)
+              const SizedBox(height: AppDimensions.spaceXs),
           ],
           const SizedBox(height: AppDimensions.spaceLg),
           OutlinedButton.icon(
             onPressed: () =>
                 ref.invalidate(dashboardSummaryProvider(_quickRange)),
-            icon: Icon(Icons.refresh_rounded, size: 16, color: AppColors.textPrimary),
+            icon: Icon(
+              Icons.refresh_rounded,
+              size: 16,
+              color: AppColors.textPrimary,
+            ),
             label: Text(
               'Refresh dashboard',
-              style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w600),
+              style: AppTextStyles.labelLarge.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: AppColors.border),
@@ -1167,8 +1196,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     const monthAbbr = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     final siM = summary != null
@@ -1177,8 +1216,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final cnM = summary != null
         ? byMonth(summary.consignmentTrend)
         : <String, double>{};
-    final allKeys =
-        ({...siM.keys, ...cnM.keys}.toList()..sort()).toList();
+    final allKeys = ({...siM.keys, ...cnM.keys}.toList()..sort()).toList();
     final last6 = allKeys.length > 6
         ? allKeys.sublist(allKeys.length - 6)
         : allKeys;
@@ -1361,8 +1399,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       height: 5,
                       decoration: BoxDecoration(
                         color: AppColors.surfaceElevated,
-                        borderRadius:
-                            BorderRadius.circular(AppDimensions.radiusFull),
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.radiusFull,
+                        ),
                       ),
                     ),
                     FractionallySizedBox(
@@ -1371,8 +1410,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         height: 5,
                         decoration: BoxDecoration(
                           color: AppColors.info,
-                          borderRadius:
-                              BorderRadius.circular(AppDimensions.radiusFull),
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.radiusFull,
+                          ),
                         ),
                       ),
                     ),
@@ -1398,12 +1438,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _PipelineItem('Stock-In drafts', pipeline?.stockInDraft ?? 0),
       _PipelineItem('Consignment drafts', pipeline?.consignmentDraft ?? 0),
       _PipelineItem(
-          'Returns in progress', pipeline?.returnSessionsInProgress ?? 0),
+        'Returns in progress',
+        pipeline?.returnSessionsInProgress ?? 0,
+      ),
       _PipelineItem(
-          'Reconciliations pending', pipeline?.reconciliationPending ?? 0),
+        'Reconciliations pending',
+        pipeline?.reconciliationPending ?? 0,
+      ),
       _PipelineItem('Disposal drafts', pipeline?.disposalDraft ?? 0),
       _PipelineItem(
-          'Supplier return drafts', pipeline?.supplierReturnDraft ?? 0),
+        'Supplier return drafts',
+        pipeline?.supplierReturnDraft ?? 0,
+      ),
     ];
 
     return _sectionCard(
@@ -1412,7 +1458,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           Text(
             'Operations pipeline drafts',
-            style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700),
+            style: AppTextStyles.titleMedium.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: AppDimensions.spaceMd),
           for (var i = 0; i < items.length; i++) ...[
@@ -1444,7 +1492,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
             ),
-            if (i < items.length - 1) const SizedBox(height: AppDimensions.spaceXs),
+            if (i < items.length - 1)
+              const SizedBox(height: AppDimensions.spaceXs),
           ],
         ],
       ),
@@ -1469,7 +1518,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               size: 36,
               color: AppColors.primary,
             ),
-
           ),
           const SizedBox(height: AppDimensions.spaceLg),
           Text(moduleName, style: AppTextStyles.headlineSmall),
@@ -1489,8 +1537,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ignore: unused_element
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }

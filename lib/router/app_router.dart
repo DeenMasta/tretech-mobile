@@ -11,7 +11,6 @@ import '../features/consignment/presentation/screens/consignment_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/disposal/presentation/screens/disposal_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
-import '../features/qr_printing/presentation/screens/qr_printing_screen.dart';
 import '../features/returns/presentation/screens/returns_screen.dart';
 import '../features/stock_in/presentation/screens/confirmation_screen.dart';
 import '../features/stock_in/presentation/screens/create_session_screen.dart';
@@ -161,11 +160,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.inventory,
         name: 'inventory',
         builder: (_, _) => const InventoryScreen(),
-      ),
-      GoRoute(
-        path: RouteNames.qrPrinting,
-        name: 'qrPrinting',
-        builder: (_, _) => const QrPrintingScreen(),
       ),
       GoRoute(
         path: RouteNames.consignment,

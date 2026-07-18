@@ -53,22 +53,6 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
   QrPrintRepository get _repo => _ref.read(qrPrintRepositoryProvider);
   BluetoothPrintService get _bt => _ref.read(bluetoothPrintServiceProvider);
 
-  String _upsertTsplCommand(String tspl, String command, String value) {
-    final pattern = RegExp('^$command\\b.*\$', multiLine: true);
-    if (pattern.hasMatch(tspl)) {
-      return tspl.replaceFirst(pattern, '$command $value');
-    }
-    return '$command $value\n$tspl';
-  }
-
-  String _normalizeStickerTspl(String tspl) {
-    var normalized = tspl;
-    normalized = _upsertTsplCommand(normalized, 'SIZE', '50 mm, 30 mm');
-    normalized = _upsertTsplCommand(normalized, 'GAP', '2 mm, 0 mm');
-    normalized = _upsertTsplCommand(normalized, 'DIRECTION', '1');
-    return normalized;
-  }
-
   /// Prints only the provided [items] (those with a valid lotId).
   /// [macAddress] — the Bluetooth MAC to print to.
   Future<void> printSelected(
@@ -125,20 +109,9 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
             continue;
           }
 
-          // HOTFIX: Intercept TSPL and fix the QR size and JSON data.
+          // HOTFIX: Rewrite only legacy JSON-based QR payloads before printing.
           try {
-            tspl = _normalizeStickerTspl(tspl);
-
-            // Force QR code size smaller (H,6 -> H,4)
-            tspl = tspl.replaceAll(r',H,6,', r',H,4,');
-
-            // Apply the layout shifts since the remote server still sends the old layout
-            tspl = tspl.replaceAll(r'TEXT 250,', r'TEXT 200,');
-            tspl = tspl.replaceAll(r'TEXT 20,250', r'TEXT 20,230');
-            tspl = tspl.replaceAll(r'TEXT 20,280', r'TEXT 20,260');
-            tspl = tspl.replaceAll(r'TEXT 20,310', r'TEXT 20,290');
-
-            // Fix the broken JSON inner quotes
+            // Fix legacy JSON inner quotes in old backend payloads.
             tspl = tspl.replaceFirstMapped(RegExp(r'QRCODE(.*?),"(\{.*?\})"'), (match) {
               final prefix = match.group(1);
               final jsonStr = match.group(2);
@@ -148,9 +121,9 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
                 final data = jsonDecode(cleanJson) as Map<String, dynamic>;
                 final ref = data['product_ref'] ?? data['set_code'] ?? '';
                 final lot = data['lot_number'] ?? '';
-                final batch = data['batch_code'] ?? '-';
+                final mfg = data['manufacturing_date'] ?? data['batch_code'] ?? '-';
                 final exp = data['expiry_date'] ?? '-';
-                final newPayload = 'V=1;REF=$ref;LOT=$lot;BATCH=$batch;EXP=$exp';
+                final newPayload = 'V=1;REF=$ref;LOT=$lot;MFG=$mfg;EXP=$exp';
                 return 'QRCODE$prefix,"$newPayload"';
               }
               return match.group(0)!;

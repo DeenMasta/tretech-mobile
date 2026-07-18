@@ -22,7 +22,6 @@ abstract final class RouteNames {
   static String stockInFinalizedPath(int id) => '/stock-in/$id/finalized';
   static const String stockInConfirmation = '/stock-in/:id/confirmation';
   static String stockInConfirmationPath(int id) => '/stock-in/$id/confirmation';
-  static const String qrPrinting = '/qr-printing';
   static const String consignment = '/consignment';
   static const String consignmentCreate = '/consignment/create';
   static const String returns = '/returns';

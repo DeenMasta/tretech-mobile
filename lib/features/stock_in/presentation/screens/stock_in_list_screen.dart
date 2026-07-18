@@ -86,6 +86,21 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
         ),
         title: Text('Stock In', style: AppTextStyles.titleMedium),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'stock-in-create-session-fab',
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF09090B),
+        elevation: 3,
+        icon: const Icon(Icons.add_rounded, color: Color(0xFF09090B)),
+        label: Text(
+          'Create session',
+          style: AppTextStyles.labelLarge.copyWith(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF09090B),
+          ),
+        ),
+        onPressed: () => context.push(RouteNames.stockInCreate),
+      ),
       body: Column(
         children: [
           Container(
@@ -112,13 +127,6 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                   ),
-                ),
-                const SizedBox(height: AppDimensions.spaceMd),
-                AppButton(
-                  label: 'Create session',
-                  icon: Icons.add_rounded,
-                  isFullWidth: false,
-                  onPressed: () => context.push(RouteNames.stockInCreate),
                 ),
               ],
             ),
