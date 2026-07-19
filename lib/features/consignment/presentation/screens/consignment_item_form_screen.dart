@@ -11,6 +11,7 @@ import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/scan_input_field.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
 import '../../../stock_in/data/models/instrument_set_model.dart';
@@ -152,15 +153,12 @@ class _ConsignmentItemFormScreenState
                           onTap: _choose,
                         )
                       else ...[
-                        AppTextField(
+                        ScanInputField(
                           controller: _lotSearch,
                           label: 'Lot',
                           hint: 'Scan or enter lot number',
-                          prefixIcon: Icons.qr_code_scanner_rounded,
-                          onPrefixIconTap: _scanLot,
-                          suffixIcon: Icons.list_alt_rounded,
-                          onSuffixIconTap: _browseLots,
-                          textInputAction: TextInputAction.search,
+                          onScan: _scanLot,
+                          onBrowse: _browseLots,
                           isLoading: _isScanning,
                           onSubmitted: (_) {
                             _debounce?.cancel();

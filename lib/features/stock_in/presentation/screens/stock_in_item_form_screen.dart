@@ -10,6 +10,7 @@ import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/scan_input_field.dart';
 import '../../data/models/instrument_set_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/stock_in_item_model.dart';
@@ -643,14 +644,12 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       child: Column(
         children: [
           if (_requiresLot) ...[
-            AppTextField(
+            ScanInputField(
               controller: _lotCtl,
               label: 'Lot number',
               hint: 'Scan or enter supplier lot number',
-              prefixIcon: Icons.qr_code_scanner_rounded,
-              onPrefixIconTap: _scanLot,
+              onScan: _scanLot,
               enabled: !_missingLotFlag,
-              textInputAction: TextInputAction.done,
               onChanged: (value) {
                 if (_lotEntryMode != LotEntryMode.manual) {
                   setState(() {
