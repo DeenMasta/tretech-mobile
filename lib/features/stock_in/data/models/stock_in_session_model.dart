@@ -20,8 +20,7 @@ class StockInSupplierBrief {
   factory StockInSupplierBrief.fromJson(Map<String, dynamic> json) {
     return StockInSupplierBrief(
       id: (json['id'] as num).toInt(),
-      supplierName:
-          (json['supplier_name'] ?? json['name'] ?? '').toString(),
+      supplierName: (json['supplier_name'] ?? json['name'] ?? '').toString(),
     );
   }
 
@@ -59,7 +58,7 @@ class StockInSessionModel {
       doNumber: (json['do_number'] ?? '').toString(),
       stockInAt:
           DateTime.tryParse((json['stock_in_at'] ?? '').toString()) ??
-              DateTime.now(),
+          DateTime.now(),
       picUserId: (json['pic_user_id'] as num).toInt(),
       status: (json['status'] ?? 'draft').toString(),
       supplier: json['supplier'] is Map<String, dynamic>
@@ -68,9 +67,7 @@ class StockInSessionModel {
             )
           : null,
       picUser: json['pic_user'] is Map<String, dynamic>
-          ? StockInUserBrief.fromJson(
-              json['pic_user'] as Map<String, dynamic>,
-            )
+          ? StockInUserBrief.fromJson(json['pic_user'] as Map<String, dynamic>)
           : null,
       confirmedByUser: json['confirmed_by_user'] is Map<String, dynamic>
           ? StockInUserBrief.fromJson(
@@ -83,9 +80,9 @@ class StockInSessionModel {
       itemsCount: (json['items_count'] as num?)?.toInt(),
       items: json['items'] is List
           ? (json['items'] as List<dynamic>)
-              .whereType<Map<String, dynamic>>()
-              .map(StockInItemModel.fromJson)
-              .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(StockInItemModel.fromJson)
+                .toList()
           : null,
       createdAt: DateTime.tryParse((json['created_at'] ?? '').toString()),
       updatedAt: DateTime.tryParse((json['updated_at'] ?? '').toString()),

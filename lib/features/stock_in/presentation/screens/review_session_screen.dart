@@ -59,7 +59,9 @@ class ReviewSessionScreen extends ConsumerWidget {
                     const SizedBox(width: AppDimensions.spaceMd),
                     Expanded(
                       child: AppButton(
-                        label: session.isConfirmed ? 'Already confirmed' : 'Confirm',
+                        label: session.isConfirmed
+                            ? 'Already confirmed'
+                            : 'Confirm',
                         icon: Icons.check_circle_outline,
                         isLoading: state.isSaving,
                         onPressed: session.isConfirmed
@@ -89,9 +91,12 @@ class ReviewSessionScreen extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: Text(s.sessionNo,
-                    style: AppTextStyles.titleMedium
-                        .copyWith(fontWeight: FontWeight.w700)),
+                child: Text(
+                  s.sessionNo,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
               StockInStatusBadge(status: s.status),
             ],
@@ -100,8 +105,7 @@ class ReviewSessionScreen extends ConsumerWidget {
           _kv('Supplier', s.supplierName),
           _kv('DO number', s.doNumber),
           _kv('PIC', s.picUserName),
-          _kv('Date / time',
-              DateFormatter.toDisplayDateTime(s.stockInAt)),
+          _kv('Date / time', DateFormatter.toDisplayDateTime(s.stockInAt)),
           if (s.remarks != null && s.remarks!.isNotEmpty)
             _kv('Remarks', s.remarks!),
         ],
@@ -117,17 +121,16 @@ class ReviewSessionScreen extends ConsumerWidget {
           children: [
             Text(
               'Items',
-              style: AppTextStyles.titleSmall
-                  .copyWith(fontWeight: FontWeight.w700),
+              style: AppTextStyles.titleSmall.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(width: AppDimensions.spaceSm),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.primaryContainer,
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.radiusFull),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
               ),
               child: Text(
                 '${state.items.length}',
@@ -157,9 +160,12 @@ class ReviewSessionScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(item.productLabel,
-              style: AppTextStyles.bodyMedium
-                  .copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            item.productLabel,
+            style: AppTextStyles.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 4),
           _kv('Lot', item.lotLabel),
           _kv('Batch', item.supplierBatchCode),
@@ -211,8 +217,9 @@ class ReviewSessionScreen extends ConsumerWidget {
             width: 96,
             child: Text(
               k,
-              style: AppTextStyles.labelSmall
-                  .copyWith(color: AppColors.textMuted),
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textMuted,
+              ),
             ),
           ),
           Expanded(child: Text(v, style: AppTextStyles.bodySmall)),
@@ -259,8 +266,9 @@ class ReviewSessionScreen extends ConsumerWidget {
     );
     if (ok != true) return;
 
-    final notifier =
-        ref.read(stockInSessionControllerProvider(sessionId).notifier);
+    final notifier = ref.read(
+      stockInSessionControllerProvider(sessionId).notifier,
+    );
     final success = await notifier.finalize();
     if (!context.mounted) return;
     if (success) {

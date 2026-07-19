@@ -31,7 +31,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   final _remarksCtl = TextEditingController();
 
   SupplierModel? _supplier;
-  DateTime _stockInAt = DateTime.now();
+  final DateTime _stockInAt = DateTime.now();
   bool _saving = false;
   bool _showSupplierError = false;
 
@@ -57,31 +57,13 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     });
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _stockInAt,
-      firstDate: DateTime.now().subtract(const Duration(days: 365 * 5)),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      _stockInAt = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        _stockInAt.hour,
-        _stockInAt.minute,
-      );
-    });
-  }
-
   Future<void> _submit() async {
     final currentUser = ref.read(currentUserProvider);
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    if (_supplier == null || currentUser == null) {
+    final picUserId = currentUser?.id;
+    if (_supplier == null || picUserId == null) {
       setState(() => _showSupplierError = _supplier == null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Supplier and PIC are required.')),
@@ -96,7 +78,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
         supplierId: _supplier!.id,
         doNumber: _doCtl.text.trim(),
         stockInAt: _stockInAt,
-        picUserId: currentUser.id,
+        picUserId: picUserId,
         remarks: _remarksCtl.text.trim(),
       );
       ref.invalidate(stockInListProvider);
@@ -226,20 +208,17 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                       },
                     ),
                     const SizedBox(height: AppDimensions.spaceMd),
-                    _PickerField(
+                    _ReadOnlyField(
                       label: 'Stock-in date',
                       value: DateFormatter.toDisplay(_stockInAt),
-                      hint: 'Pick stock-in date',
-                      helperText: 'Defaults to today',
+                      helperText: 'Automatically set when the draft is created',
                       icon: Icons.event_outlined,
-                      trailingIcon: Icons.calendar_today_outlined,
-                      onTap: _pickDate,
                     ),
                     const SizedBox(height: AppDimensions.spaceMd),
                     _ReadOnlyField(
                       label: 'PIC user',
                       value: currentUser?.name ?? '-',
-                      helperText: 'Auto-filled from your account',
+                      helperText: 'Automatically assigned to your account',
                       icon: Icons.person_outline,
                     ),
                   ],
@@ -279,6 +258,8 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   }
 }
 
+// Retained for the shared session-field visual treatment when a field is read-only.
+// ignore: unused_element
 class _ReadOnlyField extends StatelessWidget {
   const _ReadOnlyField({
     required this.label,
@@ -343,7 +324,6 @@ class _PickerField extends StatelessWidget {
     this.value,
     this.helperText,
     this.errorText,
-    this.trailingIcon = Icons.search_rounded,
   });
 
   final String label;
@@ -352,7 +332,6 @@ class _PickerField extends StatelessWidget {
   final String? helperText;
   final String? errorText;
   final IconData icon;
-  final IconData trailingIcon;
   final VoidCallback onTap;
 
   @override
@@ -400,7 +379,11 @@ class _PickerField extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppDimensions.spaceMd),
-                Icon(trailingIcon, size: 18, color: AppColors.textMuted),
+                Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
               ],
             ),
           ),

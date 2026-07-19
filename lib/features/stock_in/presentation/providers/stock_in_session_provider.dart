@@ -49,7 +49,9 @@ class ItemDraft {
   const ItemDraft({
     this.product,
     this.scannedLotNumber,
+    this.manufacturingDate,
     this.expiryDate,
+    this.quantity = 1,
     this.lotEntryMode = LotEntryMode.scan,
     this.expiryEntryMode = LotEntryMode.scan,
     this.missingLotFlag = false,
@@ -60,7 +62,9 @@ class ItemDraft {
 
   final ProductModel? product;
   final String? scannedLotNumber;
+  final DateTime? manufacturingDate;
   final DateTime? expiryDate;
+  final int quantity;
   final LotEntryMode lotEntryMode;
   final LotEntryMode expiryEntryMode;
   final bool missingLotFlag;
@@ -84,7 +88,9 @@ class ItemDraft {
   ItemDraft copyWith({
     ProductModel? product,
     String? scannedLotNumber,
+    DateTime? manufacturingDate,
     DateTime? expiryDate,
+    int? quantity,
     LotEntryMode? lotEntryMode,
     LotEntryMode? expiryEntryMode,
     bool? missingLotFlag,
@@ -100,7 +106,9 @@ class ItemDraft {
       scannedLotNumber: clearLot
           ? null
           : (scannedLotNumber ?? this.scannedLotNumber),
+      manufacturingDate: manufacturingDate ?? this.manufacturingDate,
       expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
+      quantity: quantity ?? this.quantity,
       lotEntryMode: lotEntryMode ?? this.lotEntryMode,
       expiryEntryMode: expiryEntryMode ?? this.expiryEntryMode,
       missingLotFlag: missingLotFlag ?? this.missingLotFlag,
@@ -174,7 +182,9 @@ class StockInSessionController extends Notifier<StockInSessionState> {
             : (draft.scannedLotNumber?.trim().isEmpty ?? true
                   ? null
                   : draft.scannedLotNumber!.trim()),
+        manufacturingDate: draft.manufacturingDate,
         expiryDate: draft.expiryDate,
+        quantity: draft.quantity,
         lotEntryMode: draft.lotEntryMode,
         expiryEntryMode: draft.expiryEntryMode,
         missingLotFlag: draft.missingLotFlag,
@@ -193,6 +203,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
 
   Future<bool> addSetItem({
     required int instrumentSetId,
+    int quantity = 1,
     String? remarks,
   }) async {
     final session = state.session;
@@ -204,6 +215,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
         session.id,
         entryKind: StockInEntryKind.set,
         instrumentSetId: instrumentSetId,
+        quantity: quantity,
         remarks: remarks,
       );
       state = state.copyWith(items: [...state.items, created], isSaving: false);
@@ -220,6 +232,8 @@ class StockInSessionController extends Notifier<StockInSessionState> {
     String? scannedLotNumber,
     bool clearLot = false,
     DateTime? expiryDate,
+    DateTime? manufacturingDate,
+    int? quantity,
     bool clearExpiry = false,
     LotEntryMode lotEntryMode = LotEntryMode.scan,
     LotEntryMode expiryEntryMode = LotEntryMode.scan,
@@ -239,6 +253,8 @@ class StockInSessionController extends Notifier<StockInSessionState> {
         scannedLotNumber: scannedLotNumber,
         clearLot: clearLot,
         expiryDate: expiryDate,
+        manufacturingDate: manufacturingDate,
+        quantity: quantity,
         clearExpiry: clearExpiry,
         lotEntryMode: lotEntryMode,
         expiryEntryMode: expiryEntryMode,
@@ -288,6 +304,38 @@ class StockInSessionController extends Notifier<StockInSessionState> {
       await _repo.deleteItem(session.id, itemId);
       state = state.copyWith(
         items: state.items.where((i) => i.id != itemId).toList(),
+        isSaving: false,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> correctItem(
+    int itemId, {
+    String? lotNumber,
+    DateTime? manufacturingDate,
+    DateTime? expiryDate,
+    required String adminReason,
+  }) async {
+    final session = state.session;
+    if (session == null) return false;
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final corrected = await _repo.correctItem(
+        session.id,
+        itemId,
+        lotNumber: lotNumber,
+        manufacturingDate: manufacturingDate,
+        expiryDate: expiryDate,
+        adminReason: adminReason,
+      );
+      state = state.copyWith(
+        items: state.items
+            .map((item) => item.id == itemId ? corrected : item)
+            .toList(),
         isSaving: false,
       );
       return true;

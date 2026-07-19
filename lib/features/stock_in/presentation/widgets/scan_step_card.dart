@@ -33,8 +33,8 @@ class ScanStepCard extends StatelessWidget {
     final accent = completed
         ? AppColors.success
         : active
-            ? AppColors.primary
-            : AppColors.textMuted;
+        ? AppColors.primary
+        : AppColors.textMuted;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
@@ -81,8 +81,11 @@ class ScanStepCard extends StatelessWidget {
                       ),
                       if (completed) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.check_circle_rounded,
-                            size: 14, color: AppColors.success),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: AppColors.success,
+                        ),
                       ],
                     ],
                   ),
@@ -93,8 +96,7 @@ class ScanStepCard extends StatelessWidget {
                       color: completed
                           ? AppColors.textPrimary
                           : AppColors.textSecondary,
-                      fontWeight:
-                          completed ? FontWeight.w500 : FontWeight.w400,
+                      fontWeight: completed ? FontWeight.w500 : FontWeight.w400,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -106,8 +108,7 @@ class ScanStepCard extends StatelessWidget {
               const SizedBox(width: AppDimensions.spaceSm),
               trailing!,
             ] else if (onTap != null)
-              Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
           ],
         ),
       ),

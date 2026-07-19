@@ -31,6 +31,7 @@ import '../features/stock_in/presentation/screens/create_session_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_detail_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_edit_session_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_item_form_screen.dart';
+import '../features/stock_in/presentation/screens/stock_in_item_correction_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_list_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 import 'route_names.dart';
@@ -159,6 +160,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.stockInItemEdit,
         name: 'stockInItemEdit',
         builder: (_, state) => StockInItemFormScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+          itemId: int.parse(state.pathParameters['itemId'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.stockInItemCorrect,
+        name: 'stockInItemCorrect',
+        builder: (_, state) => StockInItemCorrectionScreen(
           sessionId: int.parse(state.pathParameters['id'] ?? '0'),
           itemId: int.parse(state.pathParameters['itemId'] ?? '0'),
         ),

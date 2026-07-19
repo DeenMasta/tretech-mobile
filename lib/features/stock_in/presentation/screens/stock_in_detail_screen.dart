@@ -11,6 +11,7 @@ import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_banner.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/stock_in_item_model.dart';
 import '../../data/models/stock_in_session_model.dart';
 import '../providers/stock_in_list_provider.dart';
@@ -59,11 +60,23 @@ class StockInDetailScreen extends ConsumerWidget {
     final items = state.items;
     final canFinalize = isDraft && items.isNotEmpty && !state.isSaving;
     final holdingCount = items.where((item) => item.missingLotFlag).length;
+    final canCorrectFinalized =
+        !isDraft &&
+        (ref
+                .watch(currentUserProvider)
+                ?.permissions
+                .contains('stock_in.correct_confirmed') ??
+            false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.sidebarBg,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back to Stock In',
+          onPressed: () => context.go(RouteNames.stockIn),
+        ),
         title: Text(session.sessionNo, style: AppTextStyles.titleMedium),
         actions: [
           if (isDraft)
@@ -106,6 +119,7 @@ class StockInDetailScreen extends ConsumerWidget {
               items: items,
               isDraft: isDraft,
               isSaving: state.isSaving,
+              canCorrectFinalized: canCorrectFinalized,
             ),
             if (state.error != null) ...[
               const SizedBox(height: AppDimensions.spaceMd),
@@ -247,12 +261,14 @@ class _ItemsSection extends ConsumerWidget {
     required this.items,
     required this.isDraft,
     required this.isSaving,
+    required this.canCorrectFinalized,
   });
 
   final int sessionId;
   final List<StockInItemModel> items;
   final bool isDraft;
   final bool isSaving;
+  final bool canCorrectFinalized;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -267,12 +283,12 @@ class _ItemsSection extends ConsumerWidget {
           metaText: missingLotCount > 0 ? '$missingLotCount missing lot' : null,
           trailing: isDraft
               ? AppButton(
-                label: 'Add item',
-                icon: Icons.add_rounded,
-                size: AppButtonSize.sm,
-                isFullWidth: false,
-                onPressed: () =>
-                  context.push(RouteNames.stockInItemAddPath(sessionId)),
+                  label: 'Add item',
+                  icon: Icons.add_rounded,
+                  size: AppButtonSize.sm,
+                  isFullWidth: false,
+                  onPressed: () =>
+                      context.push(RouteNames.stockInItemAddPath(sessionId)),
                 )
               : null,
         ),
@@ -282,24 +298,28 @@ class _ItemsSection extends ConsumerWidget {
         if (items.isEmpty)
           ContentCard(
             padding: const EdgeInsets.all(AppDimensions.space3xl),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.inventory_2_outlined,
-                  size: 40,
-                  color: AppColors.textMuted,
-                ),
-                const SizedBox(height: AppDimensions.spaceMd),
-                Text(
-                  isDraft
-                      ? 'No items yet. Tap "Add item" to begin capturing.'
-                      : 'No items in this session.',
-                  style: AppTextStyles.bodySmall.copyWith(
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 40,
                     color: AppColors.textMuted,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: AppDimensions.spaceMd),
+                  Text(
+                    isDraft
+                        ? 'No items yet. Tap "Add item" to begin capturing.'
+                        : 'No items in this session.',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           )
         else
@@ -315,6 +335,11 @@ class _ItemsSection extends ConsumerWidget {
                   : null,
               onDelete: isDraft
                   ? () => _confirmDelete(context, ref, item)
+                  : null,
+              onCorrect: canCorrectFinalized
+                  ? () => context.push(
+                      RouteNames.stockInItemCorrectPath(sessionId, item.id),
+                    )
                   : null,
             ),
           ),
@@ -390,7 +415,6 @@ class _FinalizeActionCard extends StatelessWidget {
           AppButton(
             label: 'Finalize session',
             icon: Icons.check_circle_outline_rounded,
-            isFullWidth: false,
             isLoading: isSaving,
             onPressed: isSaving ? null : onPressed,
           ),
@@ -407,6 +431,7 @@ class _ItemTile extends StatelessWidget {
     required this.isSaving,
     this.onEdit,
     this.onDelete,
+    this.onCorrect,
   });
 
   final StockInItemModel item;
@@ -414,6 +439,7 @@ class _ItemTile extends StatelessWidget {
   final bool isSaving;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onCorrect;
 
   @override
   Widget build(BuildContext context) {
@@ -473,6 +499,12 @@ class _ItemTile extends StatelessWidget {
                     size: 18,
                     color: AppColors.textMuted,
                   ),
+                if (!isDraft && onCorrect != null)
+                  Icon(
+                    Icons.verified_outlined,
+                    size: 18,
+                    color: AppColors.info,
+                  ),
               ],
             ),
             const SizedBox(height: 6),
@@ -498,24 +530,19 @@ class _ItemTile extends StatelessWidget {
                     ),
                   ),
             ],
-            // Badges row
-            if (item.isSetEntry ||
-                item.missingLotFlag ||
-                item.lotEntryMode == LotEntryMode.manual ||
-                item.expiryEntryMode == LotEntryMode.manual) ...[
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                children: [
-                  if (item.isSetEntry) _badge('Set entry', AppColors.info),
+            // Capture type and exceptions.
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              children: [
+                  _badge(
+                    item.isSetEntry ? 'Set entry' : 'Product entry',
+                    AppColors.textMuted,
+                  ),
                   if (item.missingLotFlag)
                     _badge('Missing lot', AppColors.warning),
-                  if (item.lotEntryMode == LotEntryMode.manual ||
-                      item.expiryEntryMode == LotEntryMode.manual)
-                    _badge('Manual entry', AppColors.info),
-                ],
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),

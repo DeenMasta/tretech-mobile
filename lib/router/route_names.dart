@@ -16,6 +16,10 @@ abstract final class RouteNames {
   static const String stockInItemEdit = '/stock-in/:id/items/:itemId/edit';
   static String stockInItemEditPath(int id, int itemId) =>
       '/stock-in/$id/items/$itemId/edit';
+  static const String stockInItemCorrect =
+      '/stock-in/:id/items/:itemId/correct';
+  static String stockInItemCorrectPath(int id, int itemId) =>
+      '/stock-in/$id/items/$itemId/correct';
   static const String stockInScan = '/stock-in/:id/scan';
   static const String stockInReview = '/stock-in/:id/review';
   static const String stockInFinalized = '/stock-in/:id/finalized';

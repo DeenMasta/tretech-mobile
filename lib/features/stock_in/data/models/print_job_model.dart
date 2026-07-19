@@ -84,8 +84,7 @@ class PrintJobModel {
       tsplPayload: json['tspl_payload'] as String?,
       errorMessage: json['error_message'] as String?,
       requestedByUserId: (json['requested_by_user_id'] as num?)?.toInt(),
-      requestedAt:
-          DateTime.tryParse((json['requested_at'] ?? '').toString()),
+      requestedAt: DateTime.tryParse((json['requested_at'] ?? '').toString()),
       printedAt: DateTime.tryParse((json['printed_at'] ?? '').toString()),
       failedAt: DateTime.tryParse((json['failed_at'] ?? '').toString()),
       lot: json['lot'] is Map<String, dynamic>

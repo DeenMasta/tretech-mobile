@@ -76,26 +76,6 @@ class _StockInEditSessionScreenState
     setState(() => _supplier = selected);
   }
 
-  Future<void> _pickDate() async {
-    final initialDate = _stockInAt ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365 * 5)),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      _stockInAt = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        initialDate.hour,
-        initialDate.minute,
-      );
-    });
-  }
-
   Future<void> _submit(StockInSessionState state) async {
     final session = state.session;
     if (session == null || !_formKey.currentState!.validate()) {
@@ -244,21 +224,19 @@ class _StockInEditSessionScreenState
                     },
                   ),
                   const SizedBox(height: AppDimensions.spaceMd),
-                  _PickerField(
+                  _ReadOnlyField(
                     label: 'Stock-in date',
                     value: _stockInAt == null
-                        ? null
+                        ? '-'
                         : DateFormatter.toDisplay(_stockInAt!),
-                    hint: 'Pick stock-in date',
                     helperText: 'Captured when the session was created',
                     icon: Icons.event_outlined,
-                    onTap: _pickDate,
                   ),
                   const SizedBox(height: AppDimensions.spaceMd),
                   _ReadOnlyField(
                     label: 'PIC user',
                     value: session.picUserName,
-                    helperText: 'Read-only in mobile flow',
+                    helperText: 'Assigned when the session was created',
                     icon: Icons.person_outline,
                   ),
                   const SizedBox(height: AppDimensions.spaceMd),
@@ -294,6 +272,8 @@ class _StockInEditSessionScreenState
   }
 }
 
+// Retained for the shared session-field visual treatment when a field is read-only.
+// ignore: unused_element
 class _ReadOnlyField extends StatelessWidget {
   const _ReadOnlyField({
     required this.label,
@@ -345,13 +325,11 @@ class _PickerField extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.value,
-    this.helperText,
   });
 
   final String label;
   final String hint;
   final String? value;
-  final String? helperText;
   final IconData icon;
   final VoidCallback onTap;
 
@@ -390,15 +368,6 @@ class _PickerField extends StatelessWidget {
             ),
           ),
         ),
-        if (helperText != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            helperText!,
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textMuted,
-            ),
-          ),
-        ],
       ],
     );
   }

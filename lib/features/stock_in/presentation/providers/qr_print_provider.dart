@@ -60,13 +60,17 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
     String macAddress,
   ) async {
     // Only items that have a resolved lotId (non-holding, product entries).
-    final printable =
-        items.where((i) => i.lotId != null && !i.missingLotFlag).toList();
+    final printable = items
+        .where((i) => i.lotId != null && !i.missingLotFlag)
+        .toList();
 
     if (printable.isEmpty) {
-      state = const QrPrintJobState(isDone: true, errors: [
-        'No printable lots found. Ensure items have resolved lot numbers.',
-      ]);
+      state = const QrPrintJobState(
+        isDone: true,
+        errors: [
+          'No printable lots found. Ensure items have resolved lot numbers.',
+        ],
+      );
       return;
     }
 
@@ -112,7 +116,9 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
           // HOTFIX: Rewrite only legacy JSON-based QR payloads before printing.
           try {
             // Fix legacy JSON inner quotes in old backend payloads.
-            tspl = tspl.replaceFirstMapped(RegExp(r'QRCODE(.*?),"(\{.*?\})"'), (match) {
+            tspl = tspl.replaceFirstMapped(RegExp(r'QRCODE(.*?),"(\{.*?\})"'), (
+              match,
+            ) {
               final prefix = match.group(1);
               final jsonStr = match.group(2);
               if (jsonStr != null) {
@@ -121,7 +127,8 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
                 final data = jsonDecode(cleanJson) as Map<String, dynamic>;
                 final ref = data['product_ref'] ?? data['set_code'] ?? '';
                 final lot = data['lot_number'] ?? '';
-                final mfg = data['manufacturing_date'] ?? data['batch_code'] ?? '-';
+                final mfg =
+                    data['manufacturing_date'] ?? data['batch_code'] ?? '-';
                 final exp = data['expiry_date'] ?? '-';
                 final newPayload = 'V=1;REF=$ref;LOT=$lot;MFG=$mfg;EXP=$exp';
                 return 'QRCODE$prefix,"$newPayload"';
@@ -162,5 +169,5 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
 
 final qrPrintNotifierProvider =
     StateNotifierProvider.autoDispose<QrPrintNotifier, QrPrintJobState>((ref) {
-  return QrPrintNotifier(ref);
-});
+      return QrPrintNotifier(ref);
+    });

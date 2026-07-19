@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/date_formatter.dart';
@@ -7,7 +10,6 @@ import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
-import '../../../../shared/widgets/status_badge.dart';
 import '../../data/models/instrument_set_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/stock_in_item_model.dart';
@@ -37,20 +39,27 @@ class StockInItemFormScreen extends ConsumerStatefulWidget {
 
 class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   final _lotCtl = TextEditingController();
-  final _overrideCtl = TextEditingController();
+  final _quantityCtl = TextEditingController(text: '1');
   final _remarksCtl = TextEditingController();
 
   StockInEntryKind _entryKind = StockInEntryKind.product;
   ProductModel? _product;
   InstrumentSetModel? _instrumentSet;
   DateTime? _expiryDate;
+  DateTime? _manufacturingDate;
   LotEntryMode _lotEntryMode = LotEntryMode.scan;
+  LotEntryMode _expiryEntryMode = LotEntryMode.scan;
   bool _missingLotFlag = false;
   bool _saving = false;
 
+  static const EventChannel _scannerChannel = EventChannel(
+    'com.tretech/scanner',
+  );
+  StreamSubscription<dynamic>? _scannerSub;
+
   String? _productError;
   String? _instrumentSetError;
-  String? _overrideError;
+  String? _expiryError;
 
   bool _initialised = false;
 
@@ -58,9 +67,23 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       ref.read(stockInMasterDataRepositoryProvider);
 
   @override
+  void initState() {
+    super.initState();
+    _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
+      final value = data?.toString().trim() ?? '';
+      if (value.isEmpty || !mounted || _missingLotFlag) return;
+      setState(() {
+        _lotCtl.text = value;
+        _lotEntryMode = LotEntryMode.scan;
+      });
+    });
+  }
+
+  @override
   void dispose() {
     _lotCtl.dispose();
-    _overrideCtl.dispose();
+    _scannerSub?.cancel();
+    _quantityCtl.dispose();
     _remarksCtl.dispose();
     super.dispose();
   }
@@ -95,9 +118,11 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
 
     _lotCtl.text = item.scannedLotNumber ?? '';
     _expiryDate = item.expiryDate;
+    _manufacturingDate = item.manufacturingDate;
+    _quantityCtl.text = '${item.quantity ?? 1}';
     _lotEntryMode = item.lotEntryMode;
+    _expiryEntryMode = item.expiryEntryMode;
     _missingLotFlag = item.missingLotFlag;
-    _overrideCtl.text = item.entryOverrideReason ?? '';
     _remarksCtl.text = item.remarks ?? '';
   }
 
@@ -109,9 +134,16 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   bool get _requiresExpiry =>
       _isProductEntry ? (_product?.requiresExpiry ?? true) : false;
 
-  bool get _requiresOverrideReason =>
-      _isProductEntry &&
-      (_missingLotFlag || _lotEntryMode == LotEntryMode.manual);
+  String? get _automaticOverrideReason {
+    if (_missingLotFlag) return 'Supplier lot number unavailable at capture.';
+    if (_lotEntryMode == LotEntryMode.manual) {
+      return 'Lot number entered manually on mobile.';
+    }
+    if (_expiryEntryMode == LotEntryMode.manual) {
+      return 'Expiry date entered manually on mobile.';
+    }
+    return null;
+  }
 
   bool _validate() {
     setState(() {
@@ -121,15 +153,15 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _instrumentSetError = !_isProductEntry && _instrumentSet == null
           ? 'Please select an instrument set.'
           : null;
-      _overrideError =
-          _requiresOverrideReason && _overrideCtl.text.trim().isEmpty
-          ? 'Override reason is required for manual or missing-lot capture.'
+      _expiryError = _requiresExpiry && _expiryDate == null
+          ? 'Expiry date is required for this product.'
           : null;
     });
 
     return _productError == null &&
         _instrumentSetError == null &&
-        _overrideError == null;
+        _expiryError == null &&
+        (int.tryParse(_quantityCtl.text.trim()) ?? 0) > 0;
   }
 
   Future<void> _submit() async {
@@ -151,13 +183,13 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                         : null,
                     clearLot: _requiresLot && _missingLotFlag,
                     expiryDate: _requiresExpiry ? _expiryDate : null,
+                    manufacturingDate: _manufacturingDate,
+                    quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
                     clearExpiry: !_requiresExpiry,
                     lotEntryMode: _lotEntryMode,
-                    expiryEntryMode: LotEntryMode.scan,
+                    expiryEntryMode: _expiryEntryMode,
                     missingLotFlag: _requiresLot ? _missingLotFlag : false,
-                    entryOverrideReason: _requiresOverrideReason
-                        ? _overrideCtl.text.trim()
-                        : null,
+                    entryOverrideReason: _automaticOverrideReason,
                     remarks: _normalizedRemarks,
                   )
                 : await notifier.addItem(
@@ -167,12 +199,12 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                           ? _normalizedLot
                           : null,
                       expiryDate: _requiresExpiry ? _expiryDate : null,
+                      manufacturingDate: _manufacturingDate,
+                      quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
                       lotEntryMode: _lotEntryMode,
-                      expiryEntryMode: LotEntryMode.scan,
+                      expiryEntryMode: _expiryEntryMode,
                       missingLotFlag: _requiresLot ? _missingLotFlag : false,
-                      entryOverrideReason: _requiresOverrideReason
-                          ? _overrideCtl.text.trim()
-                          : null,
+                      entryOverrideReason: _automaticOverrideReason,
                       remarks: _normalizedRemarks,
                     ),
                   )
@@ -183,6 +215,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             )
           : await notifier.addSetItem(
               instrumentSetId: _instrumentSet!.id,
+              quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
               remarks: _normalizedRemarks,
             );
 
@@ -210,12 +243,12 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
               ? _normalizedLot
               : null,
           expiryDate: _requiresExpiry ? _expiryDate : null,
+          manufacturingDate: _manufacturingDate,
+          quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
           lotEntryMode: _lotEntryMode,
-          expiryEntryMode: LotEntryMode.scan,
+          expiryEntryMode: _expiryEntryMode,
           missingLotFlag: _requiresLot ? _missingLotFlag : false,
-          entryOverrideReason: _requiresOverrideReason
-              ? _overrideCtl.text.trim()
-              : null,
+          entryOverrideReason: _automaticOverrideReason,
           remarks: _normalizedRemarks,
         ),
       );
@@ -225,13 +258,14 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
         setState(() {
           _lotCtl.clear();
           _expiryDate = null;
+          _manufacturingDate = null;
+          _quantityCtl.text = '1';
           _lotEntryMode = LotEntryMode.scan;
+          _expiryEntryMode = LotEntryMode.scan;
           _missingLotFlag = false;
-          _overrideCtl.clear();
           _remarksCtl.clear();
           _product = keepProduct;
           _productError = null;
-          _overrideError = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Item added. Ready for next lot.')),
@@ -265,7 +299,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
         _expiryDate = null;
         _lotEntryMode = LotEntryMode.scan;
         _missingLotFlag = false;
-        _overrideCtl.clear();
       }
     });
   }
@@ -276,10 +309,23 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       repository: _masterRepo,
     );
     if (picked == null || !mounted) return;
-    setState(() {
-      _instrumentSet = picked;
-      _instrumentSetError = null;
-    });
+    setState(() => _saving = true);
+    try {
+      final detailed = await _masterRepo.getInstrumentSet(picked.id);
+      if (!mounted) return;
+      setState(() {
+        _instrumentSet = detailed;
+        _instrumentSetError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _instrumentSet = picked;
+        _instrumentSetError = null;
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _scanLot() async {
@@ -293,7 +339,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _lotCtl.text = result.value;
       _lotEntryMode = result.manual ? LotEntryMode.manual : LotEntryMode.scan;
       _missingLotFlag = false;
-      _overrideError = null;
     });
   }
 
@@ -307,7 +352,22 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       helpText: 'Select expiry date',
     );
     if (picked == null || !mounted) return;
-    setState(() => _expiryDate = picked);
+    setState(() {
+      _expiryDate = picked;
+      _expiryEntryMode = LotEntryMode.manual;
+      _expiryError = null;
+    });
+  }
+
+  Future<void> _pickManufacturingDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _manufacturingDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
+    );
+    if (picked != null && mounted) setState(() => _manufacturingDate = picked);
   }
 
   void _setEntryKind(StockInEntryKind kind) {
@@ -317,14 +377,15 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _product = null;
       _instrumentSet = null;
       _lotCtl.clear();
-      _overrideCtl.clear();
       _remarksCtl.clear();
       _expiryDate = null;
+      _manufacturingDate = null;
+      _quantityCtl.text = '1';
       _lotEntryMode = LotEntryMode.scan;
+      _expiryEntryMode = LotEntryMode.scan;
       _missingLotFlag = false;
       _productError = null;
       _instrumentSetError = null;
-      _overrideError = null;
     });
   }
 
@@ -376,33 +437,38 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppButton(
-                label: widget.isEdit ? 'Save changes' : 'Add item',
-                icon: widget.isEdit
-                    ? Icons.save_outlined
-                    : Icons.add_circle_outline_rounded,
-                isLoading: _saving,
-                isFullWidth: false,
-                onPressed: _saving ? null : _submit,
-              ),
-              if (!widget.isEdit && _isProductEntry) ...[
-                const SizedBox(height: AppDimensions.spaceMd),
+              if (!widget.isEdit && _isProductEntry)
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        label: 'Save & next',
+                        variant: AppButtonVariant.secondary,
+                        icon: Icons.add_rounded,
+                        isLoading: _saving,
+                        onPressed: _saving ? null : _submitAndAddAnother,
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.spaceMd),
+                    Expanded(
+                      child: AppButton(
+                        label: 'Add item',
+                        icon: Icons.add_circle_outline_rounded,
+                        isLoading: _saving,
+                        onPressed: _saving ? null : _submit,
+                      ),
+                    ),
+                  ],
+                )
+              else
                 AppButton(
-                  label: 'Save & next lot',
-                  variant: AppButtonVariant.secondary,
-                  icon: Icons.add_rounded,
+                  label: widget.isEdit ? 'Save changes' : 'Add item',
+                  icon: widget.isEdit
+                      ? Icons.save_outlined
+                      : Icons.add_circle_outline_rounded,
                   isLoading: _saving,
-                  isFullWidth: false,
-                  onPressed: _saving ? null : _submitAndAddAnother,
+                  onPressed: _saving ? null : _submit,
                 ),
-              ],
-              const SizedBox(height: AppDimensions.spaceSm),
-              AppButton(
-                label: 'Cancel',
-                variant: AppButtonVariant.ghost,
-                isFullWidth: false,
-                onPressed: _saving ? null : () => context.pop(),
-              ),
             ],
           ),
         ),
@@ -580,12 +646,18 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             AppTextField(
               controller: _lotCtl,
               label: 'Lot number',
-              hint: 'Use the scan button to capture the lot',
-              prefixIcon: Icons.inventory_2_outlined,
-              suffixIcon: Icons.qr_code_scanner_rounded,
-              onSuffixIconTap: _scanLot,
+              hint: 'Scan or enter supplier lot number',
+              prefixIcon: Icons.qr_code_scanner_rounded,
+              onPrefixIconTap: _scanLot,
               enabled: !_missingLotFlag,
-              readOnly: true,
+              textInputAction: TextInputAction.done,
+              onChanged: (value) {
+                if (_lotEntryMode != LotEntryMode.manual) {
+                  setState(() {
+                    _lotEntryMode = LotEntryMode.manual;
+                  });
+                }
+              },
               errorText:
                   !_missingLotFlag &&
                       _lotEntryMode == LotEntryMode.manual &&
@@ -605,8 +677,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                   _lotCtl.clear();
                   _lotEntryMode = LotEntryMode.manual;
                 }
-                _overrideCtl.clear();
-                _overrideError = null;
               }),
             ),
             const SizedBox(height: AppDimensions.spaceMd),
@@ -617,6 +687,21 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                   '${_product!.productName} will receive an auto-generated lot number when the session is finalized.',
             ),
           if (_requiresExpiry) _expiryField(),
+          if (_isProductEntry) ...[
+            const SizedBox(height: AppDimensions.spaceMd),
+            _manufacturingDateField(),
+            const SizedBox(height: AppDimensions.spaceMd),
+            AppTextField(
+              controller: _quantityCtl,
+              label: 'Received quantity *',
+              hint: '1',
+              keyboardType: TextInputType.number,
+              prefixIcon: Icons.numbers_rounded,
+              validator: (value) => (int.tryParse(value?.trim() ?? '') ?? 0) > 0
+                  ? null
+                  : 'Quantity must be at least 1.',
+            ),
+          ],
         ],
       ),
     );
@@ -628,17 +713,6 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       description: 'Record receiving exceptions and any optional notes.',
       child: Column(
         children: [
-          if (_requiresOverrideReason) ...[
-            AppTextField(
-              controller: _overrideCtl,
-              label: 'Override reason *',
-              hint: 'Explain why this line required manual capture',
-              prefixIcon: Icons.edit_note_rounded,
-              errorText: _overrideError,
-              maxLines: 2,
-              onChanged: (_) => setState(() => _overrideError = null),
-            ),
-          ],
           const SizedBox(height: AppDimensions.spaceMd),
           AppTextField(
             controller: _remarksCtl,
@@ -657,12 +731,27 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       title: 'Receiving notes',
       description:
           'Set-instance entries only track the selected set and optional remarks at draft time.',
-      child: AppTextField(
-        controller: _remarksCtl,
-        label: 'Remarks (optional)',
-        hint: 'Optional notes for this set instance',
-        prefixIcon: Icons.notes_rounded,
-        maxLines: 3,
+      child: Column(
+        children: [
+          AppTextField(
+            controller: _quantityCtl,
+            label: 'Received quantity *',
+            hint: '1',
+            keyboardType: TextInputType.number,
+            prefixIcon: Icons.numbers_rounded,
+            validator: (value) => (int.tryParse(value?.trim() ?? '') ?? 0) > 0
+                ? null
+                : 'Quantity must be at least 1.',
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          AppTextField(
+            controller: _remarksCtl,
+            label: 'Remarks (optional)',
+            hint: 'Optional notes for this set instance',
+            prefixIcon: Icons.notes_rounded,
+            maxLines: 3,
+          ),
+        ],
       ),
     );
   }
@@ -778,25 +867,24 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             ),
           ),
           const SizedBox(height: AppDimensions.spaceSm),
-          Wrap(
-            spacing: AppDimensions.spaceSm,
-            runSpacing: AppDimensions.spaceSm,
+          Row(
             children: [
-              StatusBadge(
-                label: product.requiresLot ? 'Lot tracked' : 'No lot tracking',
-                status: product.requiresLot
-                    ? BadgeStatus.info
-                    : BadgeStatus.neutral,
-                dot: false,
+              Expanded(
+                child: _ProductRequirement(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Lot tracking',
+                  value: product.requiresLot ? 'Required' : 'Not required',
+                  emphasized: product.requiresLot,
+                ),
               ),
-              StatusBadge(
-                label: product.requiresExpiry
-                    ? 'Expiry tracked'
-                    : 'No expiry tracking',
-                status: product.requiresExpiry
-                    ? BadgeStatus.success
-                    : BadgeStatus.neutral,
-                dot: false,
+              const SizedBox(width: AppDimensions.spaceLg),
+              Expanded(
+                child: _ProductRequirement(
+                  icon: Icons.event_outlined,
+                  label: 'Expiry tracking',
+                  value: product.requiresExpiry ? 'Required' : 'Not required',
+                  emphasized: product.requiresExpiry,
+                ),
               ),
             ],
           ),
@@ -845,8 +933,87 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   }
 
   Widget _expiryField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: _saving ? null : _pickExpiry,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spaceMd,
+              vertical: AppDimensions.spaceMd,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+              border: Border.all(
+                color: _expiryError == null
+                    ? AppColors.border
+                    : AppColors.error,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 18,
+                  color: _expiryError == null
+                      ? AppColors.textMuted
+                      : AppColors.error,
+                ),
+                const SizedBox(width: AppDimensions.spaceMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Expiry date *',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceXxs),
+                      Text(
+                        _expiryDate == null
+                            ? 'Tap to pick expiry date'
+                            : DateFormatter.toDisplay(_expiryDate!),
+                        style: _expiryDate == null
+                            ? AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textMuted,
+                              )
+                            : AppTextStyles.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_expiryDate != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 18),
+                    color: AppColors.textMuted,
+                    onPressed: () => setState(() {
+                      _expiryDate = null;
+                      _expiryError = null;
+                    }),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (_expiryError != null) ...[
+          const SizedBox(height: AppDimensions.spaceSm),
+          Text(
+            _expiryError!,
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _manufacturingDateField() {
     return InkWell(
-      onTap: _saving ? null : _pickExpiry,
+      onTap: _saving ? null : _pickManufacturingDate,
       borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
       child: Container(
         padding: const EdgeInsets.symmetric(
@@ -860,41 +1027,37 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 18,
-              color: AppColors.textMuted,
-            ),
+            Icon(Icons.factory_outlined, size: 18, color: AppColors.textMuted),
             const SizedBox(width: AppDimensions.spaceMd),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Expiry date',
+                    'Manufacturing date',
                     style: AppTextStyles.labelSmall.copyWith(
                       color: AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(height: AppDimensions.spaceXxs),
                   Text(
-                    _expiryDate != null
-                        ? DateFormatter.toDisplay(_expiryDate!)
-                        : 'Tap to pick expiry date (optional)',
-                    style: _expiryDate != null
-                        ? AppTextStyles.bodyMedium
-                        : AppTextStyles.bodyMedium.copyWith(
+                    _manufacturingDate == null
+                        ? 'Tap to pick manufacturing date (optional)'
+                        : DateFormatter.toDisplay(_manufacturingDate!),
+                    style: _manufacturingDate == null
+                        ? AppTextStyles.bodyMedium.copyWith(
                             color: AppColors.textMuted,
-                          ),
+                          )
+                        : AppTextStyles.bodyMedium,
                   ),
                 ],
               ),
             ),
-            if (_expiryDate != null)
+            if (_manufacturingDate != null)
               IconButton(
                 icon: const Icon(Icons.clear_rounded, size: 18),
                 color: AppColors.textMuted,
-                onPressed: () => setState(() => _expiryDate = null),
+                onPressed: () => setState(() => _manufacturingDate = null),
               ),
           ],
         ),
@@ -990,6 +1153,53 @@ class _ErrorBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProductRequirement extends StatelessWidget {
+  const _ProductRequirement({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.emphasized,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = emphasized ? AppColors.textPrimary : AppColors.textMuted;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: AppDimensions.spaceSm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

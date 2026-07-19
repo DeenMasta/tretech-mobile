@@ -10,6 +10,7 @@ class StockInListFilter {
     this.supplierName,
     this.fromDate,
     this.toDate,
+    this.page = 1,
   });
 
   final String search;
@@ -18,6 +19,7 @@ class StockInListFilter {
   final String? supplierName;
   final DateTime? fromDate;
   final DateTime? toDate;
+  final int page;
 
   StockInListFilter copyWith({
     String? search,
@@ -29,6 +31,7 @@ class StockInListFilter {
     bool clearSupplier = false,
     bool clearFromDate = false,
     bool clearToDate = false,
+    int? page,
   }) => StockInListFilter(
     search: search ?? this.search,
     status: status ?? this.status,
@@ -36,6 +39,7 @@ class StockInListFilter {
     supplierName: clearSupplier ? null : (supplierName ?? this.supplierName),
     fromDate: clearFromDate ? null : (fromDate ?? this.fromDate),
     toDate: clearToDate ? null : (toDate ?? this.toDate),
+    page: page ?? 1,
   );
 
   @override
@@ -47,11 +51,19 @@ class StockInListFilter {
           other.supplierId == supplierId &&
           other.supplierName == supplierName &&
           other.fromDate == fromDate &&
-          other.toDate == toDate);
+          other.toDate == toDate &&
+          other.page == page);
 
   @override
-  int get hashCode =>
-      Object.hash(search, status, supplierId, supplierName, fromDate, toDate);
+  int get hashCode => Object.hash(
+    search,
+    status,
+    supplierId,
+    supplierName,
+    fromDate,
+    toDate,
+    page,
+  );
 }
 
 class StockInListFilterNotifier extends StateNotifier<StockInListFilter> {
@@ -69,6 +81,7 @@ class StockInListFilterNotifier extends StateNotifier<StockInListFilter> {
   void setToDate(DateTime? value) =>
       state = state.copyWith(toDate: value, clearToDate: value == null);
   void apply(StockInListFilter filter) => state = filter;
+  void loadPage(int page) => state = state.copyWith(page: page);
   void clear() => state = const StockInListFilter();
 }
 
@@ -95,5 +108,6 @@ final stockInListProvider = FutureProvider.autoDispose
                   '${filter.toDate!.month.toString().padLeft(2, '0')}-'
                   '${filter.toDate!.day.toString().padLeft(2, '0')}',
         perPage: 25,
+        page: filter.page,
       );
     });

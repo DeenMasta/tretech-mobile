@@ -126,7 +126,7 @@ class StockInRepository {
         data: {
           'supplier_id': supplierId,
           'do_number': doNumber,
-          'stock_in_at': stockInAt.toUtc().toIso8601String(),
+          'stock_in_at': _dateOnly(stockInAt),
           'pic_user_id': picUserId,
           if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
         },
@@ -150,7 +150,7 @@ class StockInRepository {
       if (supplierId != null) payload['supplier_id'] = supplierId;
       if (doNumber != null) payload['do_number'] = doNumber;
       if (stockInAt != null) {
-        payload['stock_in_at'] = stockInAt.toUtc().toIso8601String();
+        payload['stock_in_at'] = _dateOnly(stockInAt);
       }
       if (picUserId != null) payload['pic_user_id'] = picUserId;
       if (remarks != null) payload['remarks'] = remarks;
@@ -203,7 +203,9 @@ class StockInRepository {
     int? productId,
     int? instrumentSetId,
     String? scannedLotNumber,
+    DateTime? manufacturingDate,
     DateTime? expiryDate,
+    int quantity = 1,
     LotEntryMode lotEntryMode = LotEntryMode.scan,
     LotEntryMode expiryEntryMode = LotEntryMode.scan,
     bool missingLotFlag = false,
@@ -224,6 +226,7 @@ class StockInRepository {
           'expiry_entry_mode': expiryEntryMode.apiValue,
         if (entryKind == StockInEntryKind.product)
           'missing_lot_flag': missingLotFlag,
+        'quantity': quantity,
       };
       if (entryKind == StockInEntryKind.product &&
           scannedLotNumber != null &&
@@ -235,6 +238,9 @@ class StockInRepository {
             '${expiryDate.year.toString().padLeft(4, '0')}-'
             '${expiryDate.month.toString().padLeft(2, '0')}-'
             '${expiryDate.day.toString().padLeft(2, '0')}';
+      }
+      if (entryKind == StockInEntryKind.product && manufacturingDate != null) {
+        payload['manufacturing_date'] = _dateOnly(manufacturingDate);
       }
       if (sourceBarcode != null && sourceBarcode.isNotEmpty) {
         payload['source_barcode'] = sourceBarcode;
@@ -266,6 +272,8 @@ class StockInRepository {
     String? scannedLotNumber,
     bool clearLot = false,
     DateTime? expiryDate,
+    DateTime? manufacturingDate,
+    int? quantity,
     bool clearExpiry = false,
     LotEntryMode? lotEntryMode,
     LotEntryMode? expiryEntryMode,
@@ -285,6 +293,10 @@ class StockInRepository {
       }
       if (expiryEntryMode != null) {
         payload['expiry_entry_mode'] = expiryEntryMode.apiValue;
+      }
+      if (quantity != null) payload['quantity'] = quantity;
+      if (manufacturingDate != null) {
+        payload['manufacturing_date'] = _dateOnly(manufacturingDate);
       }
       if (clearLot) {
         payload['scanned_lot_number'] = null;
@@ -329,6 +341,35 @@ class StockInRepository {
       throw _wrap(e.error ?? const UnknownException());
     }
   }
+
+  Future<StockInItemModel> correctItem(
+    int sessionId,
+    int itemId, {
+    String? lotNumber,
+    DateTime? manufacturingDate,
+    DateTime? expiryDate,
+    required String adminReason,
+  }) async {
+    try {
+      final response = await _dio.patch<Map<String, dynamic>>(
+        ApiEndpoints.stockInSessionItemCorrection(sessionId, itemId),
+        data: {
+          if (lotNumber != null && lotNumber.trim().isNotEmpty)
+            'lot_number': lotNumber.trim(),
+          if (manufacturingDate != null)
+            'manufacturing_date': _dateOnly(manufacturingDate),
+          if (expiryDate != null) 'expiry_date': _dateOnly(expiryDate),
+          'admin_reason': adminReason.trim(),
+        },
+      );
+      return StockInItemModel.fromJson(_unwrap(response.data ?? {}));
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  String _dateOnly(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 }
 
 /// Riverpod provider.

@@ -80,6 +80,21 @@ class StockInMasterDataRepository {
     }
   }
 
+  Future<InstrumentSetModel> getInstrumentSet(int id) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '${ApiEndpoints.masterDataInstrumentSets}/$id',
+      );
+      final body = response.data ?? const <String, dynamic>{};
+      final data = body['data'] is Map<String, dynamic>
+          ? body['data'] as Map<String, dynamic>
+          : body;
+      return InstrumentSetModel.fromJson(data);
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
   /// Looks up a product by its ref_num (used when scanning the product code).
   /// Returns null when the search yields no results.
   Future<ProductModel?> findProductByRef(String refNum) async {

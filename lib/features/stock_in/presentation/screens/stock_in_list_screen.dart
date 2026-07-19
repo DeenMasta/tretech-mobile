@@ -322,10 +322,57 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
           AppDimensions.spaceLg,
           AppDimensions.space5xl,
         ),
-        itemCount: page.items.length,
+        itemCount: page.items.length + 1,
         separatorBuilder: (_, _) =>
             const SizedBox(height: AppDimensions.spaceSm),
-        itemBuilder: (_, index) => _buildSessionCard(page.items[index]),
+        itemBuilder: (_, index) {
+          if (index < page.items.length) {
+            return _buildSessionCard(page.items[index]);
+          }
+          if (page.lastPage <= 1) return const SizedBox.shrink();
+          return _buildPagination(page, filter);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPagination(StockInSessionPage page, StockInListFilter filter) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppDimensions.spaceMd),
+      child: Row(
+        children: [
+          Expanded(
+            child: AppButton(
+              label: 'Previous',
+              variant: AppButtonVariant.secondary,
+              onPressed: page.currentPage > 1
+                  ? () => ref
+                        .read(stockInListFilterProvider.notifier)
+                        .loadPage(page.currentPage - 1)
+                  : null,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spaceMd,
+            ),
+            child: Text(
+              'Page ${page.currentPage} of ${page.lastPage}',
+              style: AppTextStyles.labelMedium,
+            ),
+          ),
+          Expanded(
+            child: AppButton(
+              label: 'Next',
+              variant: AppButtonVariant.secondary,
+              onPressed: page.currentPage < page.lastPage
+                  ? () => ref
+                        .read(stockInListFilterProvider.notifier)
+                        .loadPage(page.currentPage + 1)
+                  : null,
+            ),
+          ),
+        ],
       ),
     );
   }

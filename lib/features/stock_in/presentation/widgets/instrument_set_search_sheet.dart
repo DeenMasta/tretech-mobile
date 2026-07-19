@@ -183,8 +183,8 @@ class _InstrumentSetSearchSheetState extends State<InstrumentSetSearchSheet> {
                           ),
                           subtitle: Text(
                             set.setCode?.trim().isNotEmpty == true
-                                ? '${set.setCode} • ${set.items.length} components'
-                                : '${set.items.length} components',
+                                ? '${set.setCode} • ${set.componentCount} components'
+                                : '${set.componentCount} components',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.textMuted,
                             ),
