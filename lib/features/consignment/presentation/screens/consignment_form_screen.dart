@@ -58,8 +58,9 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
       _loaded = true;
     }
     if (detail?.isLoading == true && !_loaded) return _loading();
-    if (detail?.hasError == true)
+    if (detail?.hasError == true) {
       return Scaffold(body: AppErrorWidget(message: detail!.error.toString()));
+    }
     final user = ref.watch(currentUserProvider);
     final pageTitle = widget.postConfirmEdit
         ? 'Update confirmed consignment'
@@ -322,9 +323,10 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
   }
 
   void _error(Object error) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 }

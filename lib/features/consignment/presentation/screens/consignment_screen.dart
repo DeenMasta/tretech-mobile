@@ -288,7 +288,7 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
   }
 
   Widget _list(List<ConsignmentModel> rows, ConsignmentFilter filter) {
-    if (rows.isEmpty)
+    if (rows.isEmpty) {
       return ListView(
         children: [
           const SizedBox(height: 100),
@@ -303,6 +303,7 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
           ),
         ],
       );
+    }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         AppDimensions.spaceLg,

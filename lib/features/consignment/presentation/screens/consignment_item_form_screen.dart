@@ -38,9 +38,11 @@ class _ConsignmentItemFormScreenState
   final _remarks = TextEditingController();
   final _lotSearch = TextEditingController();
   Timer? _debounce;
-  
-  static const EventChannel _scannerChannel = EventChannel('com.tretech/scanner');
-  StreamSubscription? _scannerSub;
+
+  static const EventChannel _scannerChannel = EventChannel(
+    'com.tretech/scanner',
+  );
+  StreamSubscription<dynamic>? _scannerSub;
 
   @override
   void initState() {
@@ -89,13 +91,14 @@ class _ConsignmentItemFormScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(e.toString())),
         data: (consignment) {
-          if (!consignment.isDraft)
+          if (!consignment.isDraft) {
             return Center(
               child: Text(
                 'Draft consignment required',
                 style: AppTextStyles.bodyMedium,
               ),
             );
+          }
           return ListView(
             padding: const EdgeInsets.all(AppDimensions.spaceLg),
             children: [
@@ -112,7 +115,7 @@ class _ConsignmentItemFormScreenState
                     'Choose whether this consignment line is a lot from inventory or an instrument set.',
                 child: ContentCard(
                   child: DropdownButtonFormField<bool>(
-                    value: _isSet,
+                    initialValue: _isSet,
                     decoration: const InputDecoration(labelText: 'Capture as'),
                     items: const [
                       DropdownMenuItem(value: false, child: Text('Lot')),
@@ -164,18 +167,27 @@ class _ConsignmentItemFormScreenState
                             _findScannedLot();
                           },
                           onChanged: (val) {
-                            if (val.contains('=') || val.contains(';') || val.contains('{')) {
-                              if (!_isScanning) setState(() => _isScanning = true);
+                            if (val.contains('=') ||
+                                val.contains(';') ||
+                                val.contains('{')) {
+                              if (!_isScanning) {
+                                setState(() => _isScanning = true);
+                              }
                             }
                             setState(() => _lot = null);
                             _debounce?.cancel();
-                            _debounce = Timer(const Duration(milliseconds: 150), () {
-                              if (_lotSearch.text.trim().isNotEmpty) {
-                                _findScannedLot();
-                              } else {
-                                if (mounted) setState(() => _isScanning = false);
-                              }
-                            });
+                            _debounce = Timer(
+                              const Duration(milliseconds: 150),
+                              () {
+                                if (_lotSearch.text.trim().isNotEmpty) {
+                                  _findScannedLot();
+                                } else {
+                                  if (mounted) {
+                                    setState(() => _isScanning = false);
+                                  }
+                                }
+                              },
+                            );
                           },
                         ),
                         if (_lot != null) ...[
@@ -430,9 +442,10 @@ class _ConsignmentItemFormScreenState
   }
 
   void _error(Object e) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
   }
 }

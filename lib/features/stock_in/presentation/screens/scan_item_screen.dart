@@ -26,20 +26,17 @@ class ScanItemScreen extends ConsumerStatefulWidget {
 }
 
 class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
-  final _batchCtl = TextEditingController();
   final _overrideCtl = TextEditingController();
 
   @override
   void dispose() {
-    _batchCtl.dispose();
     _overrideCtl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state =
-        ref.watch(stockInSessionControllerProvider(widget.sessionId));
+    final state = ref.watch(stockInSessionControllerProvider(widget.sessionId));
     final draft = ref.watch(itemDraftProvider);
     final session = state.session;
 
@@ -122,9 +119,7 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
               ),
             ),
           ),
-          Expanded(
-            child: Text(v, style: AppTextStyles.bodySmall),
-          ),
+          Expanded(child: Text(v, style: AppTextStyles.bodySmall)),
         ],
       ),
     );
@@ -140,14 +135,12 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded,
-              color: AppColors.error, size: 16),
+          Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               msg,
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.error),
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
             ),
           ),
         ],
@@ -163,9 +156,10 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Scan a new item',
-            style: AppTextStyles.titleSmall
-                .copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          'Scan a new item',
+          style: AppTextStyles.titleSmall.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: AppDimensions.spaceXs),
         Text(
           'Follow each step to capture the lot details.',
@@ -191,16 +185,16 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           subtitle: !requiresLot
               ? 'This product does not require lot tracking. A lot will be generated during finalization.'
               : draft.missingLotFlag
-                  ? 'Lot flagged as missing - manual override active'
-                  : 'Tap to scan the lot number on the package',
+              ? 'Lot flagged as missing - manual override active'
+              : 'Tap to scan the lot number on the package',
           icon: Icons.inventory_2_rounded,
           completed: draft.hasProduct && lotSatisfied,
           active: draft.hasProduct && requiresLot && !draft.hasLot,
           value: requiresLot
               ? draft.scannedLotNumber
               : draft.hasProduct
-                  ? 'Auto-generate on finalize'
-                  : null,
+              ? 'Auto-generate on finalize'
+              : null,
           onTap: draft.hasProduct && requiresLot ? _onScanLot : null,
           trailing: draft.hasProduct && requiresLot
               ? IconButton(
@@ -235,29 +229,10 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           onTap: draft.hasProduct && lotSatisfied ? _onPickExpiry : null,
         ),
         const SizedBox(height: AppDimensions.spaceSm),
-        ScanStepCard(
-          index: 4,
-          title: 'Supplier batch code',
-          subtitle: 'Type the supplier batch code (required)',
-          icon: Icons.tag_rounded,
-          completed: draft.hasBatch,
-          active: draft.hasProduct && lotSatisfied,
-          value: draft.supplierBatchCode.isEmpty
-              ? null
-              : draft.supplierBatchCode,
-        ),
         if (draft.product != null && !requiresLot) ...[
           const SizedBox(height: AppDimensions.spaceMd),
           _buildLotTrackingInfo(draft.product!),
         ],
-        const SizedBox(height: AppDimensions.spaceMd),
-        AppTextField(
-          controller: _batchCtl,
-          hint: 'Supplier batch code',
-          prefixIcon: Icons.tag_rounded,
-          onChanged: (v) =>
-              ref.read(itemDraftProvider.notifier).setBatch(v),
-        ),
         if (draft.requiresOverrideReason) ...[
           const SizedBox(height: AppDimensions.spaceMd),
           AppTextField(
@@ -332,7 +307,6 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       return;
     }
     ref.read(itemDraftProvider.notifier).setProduct(product);
-    _batchCtl.clear();
     _overrideCtl.clear();
   }
 
@@ -343,7 +317,9 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       helperText: 'Aim at the lot-number barcode on the package',
     );
     if (result == null) return;
-    ref.read(itemDraftProvider.notifier).setLot(
+    ref
+        .read(itemDraftProvider.notifier)
+        .setLot(
           lotNumber: result.value,
           mode: result.manual ? LotEntryMode.manual : LotEntryMode.scan,
         );
@@ -354,8 +330,9 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       context: context,
       backgroundColor: AppColors.surfaceElevated,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppDimensions.radiusXl)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.radiusXl),
+        ),
       ),
       builder: (_) => SafeArea(
         child: Column(
@@ -389,13 +366,14 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       if (parsed == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Could not parse the expiry value.')),
+            const SnackBar(content: Text('Could not parse the expiry value.')),
           );
         }
         return;
       }
-      ref.read(itemDraftProvider.notifier).setExpiry(
+      ref
+          .read(itemDraftProvider.notifier)
+          .setExpiry(
             date: parsed,
             mode: scan.manual ? LotEntryMode.manual : LotEntryMode.scan,
           );
@@ -421,7 +399,8 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
     if (parsed != null) return parsed;
     if (RegExp(r'^\d{8}$').hasMatch(s)) {
       return DateTime.tryParse(
-          '${s.substring(0, 4)}-${s.substring(4, 6)}-${s.substring(6, 8)}');
+        '${s.substring(0, 4)}-${s.substring(4, 6)}-${s.substring(6, 8)}',
+      );
     }
     return null;
   }
@@ -435,17 +414,16 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           children: [
             Text(
               'Scanned items',
-              style: AppTextStyles.titleSmall
-                  .copyWith(fontWeight: FontWeight.w700),
+              style: AppTextStyles.titleSmall.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(width: AppDimensions.spaceSm),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.primaryContainer,
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.radiusFull),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
               ),
               child: Text(
                 '${state.items.length}',
@@ -463,8 +441,7 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
             padding: const EdgeInsets.all(AppDimensions.spaceLg),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.cardRadius),
+              borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
               border: Border.all(color: AppColors.border),
             ),
             child: Text(
@@ -497,22 +474,25 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
               color: AppColors.primaryContainer,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.inventory_2_rounded,
-                color: AppColors.primary, size: 18),
+            child: Icon(
+              Icons.inventory_2_rounded,
+              color: AppColors.primary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: AppDimensions.spaceMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.productLabel,
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
                 Text(
-                  'Lot: ${item.lotLabel}  •  Batch: ${item.supplierBatchCode}',
-                  style: AppTextStyles.bodySmall,
+                  item.productLabel,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                const SizedBox(height: 2),
+                Text('Lot: ${item.lotLabel}', style: AppTextStyles.bodySmall),
                 if (item.expiryDate != null)
                   Text(
                     'Exp: ${DateFormatter.toDisplay(item.expiryDate!)}',
@@ -523,8 +503,10 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           ),
           IconButton(
             tooltip: 'Remove',
-            icon: Icon(Icons.delete_outline_rounded,
-                color: AppColors.textMuted),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.textMuted,
+            ),
             onPressed: () => _confirmRemove(item.id),
           ),
         ],
@@ -537,7 +519,9 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Remove item?'),
-        content: const Text('This will remove the scanned item from the session.'),
+        content: const Text(
+          'This will remove the scanned item from the session.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -545,8 +529,7 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Remove',
-                style: TextStyle(color: AppColors.error)),
+            child: Text('Remove', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -560,7 +543,8 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
   // ── Bottom bar ───────────────────────────────────────────────
   Widget _buildBottomBar(StockInSessionState state, ItemDraft draft) {
     final canAdd = draft.readyToSubmit && !state.isSaving;
-    final overrideOk = !draft.requiresOverrideReason ||
+    final overrideOk =
+        !draft.requiresOverrideReason ||
         (draft.entryOverrideReason?.isNotEmpty ?? false);
 
     return SafeArea(
@@ -593,9 +577,8 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
                 icon: Icons.checklist_rounded,
                 onPressed: state.items.isEmpty
                     ? null
-                    : () => context.push(
-                          '/stock-in/${widget.sessionId}/review',
-                        ),
+                    : () =>
+                          context.push('/stock-in/${widget.sessionId}/review'),
               ),
             ),
           ],
@@ -612,11 +595,10 @@ class _ScanItemScreenState extends ConsumerState<ScanItemScreen> {
     if (!mounted) return;
     if (ok) {
       ref.read(itemDraftProvider.notifier).reset();
-      _batchCtl.clear();
       _overrideCtl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item added.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Item added.')));
     }
   }
 }

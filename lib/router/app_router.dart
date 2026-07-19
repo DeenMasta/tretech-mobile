@@ -13,6 +13,13 @@ import '../features/consignment/presentation/screens/consignment_detail_screen.d
 import '../features/consignment/presentation/screens/consignment_item_form_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/disposal/presentation/screens/disposal_screen.dart';
+import '../features/inventory/presentation/screens/inventory_all_lots_screen.dart';
+import '../features/inventory/presentation/screens/inventory_detail_screen.dart';
+import '../features/inventory/presentation/screens/inventory_expiring_soon_screen.dart';
+import '../features/inventory/presentation/screens/inventory_ledger_screen.dart';
+import '../features/inventory/presentation/screens/inventory_lookup_screen.dart';
+import '../features/inventory/presentation/screens/inventory_movements_screen.dart';
+import '../features/inventory/presentation/screens/inventory_product_lots_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/returns/presentation/screens/returns_screen.dart';
 import '../features/stock_in/presentation/screens/confirmation_screen.dart';
@@ -163,6 +170,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.inventory,
         name: 'inventory',
         builder: (_, _) => const InventoryScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryAllLots,
+        name: 'inventoryAllLots',
+        builder: (_, _) => const InventoryAllLotsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryExpiringSoon,
+        name: 'inventoryExpiringSoon',
+        builder: (_, _) => const InventoryExpiringSoonScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryLookup,
+        name: 'inventoryLookup',
+        builder: (_, _) => const InventoryLookupScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryLedger,
+        name: 'inventoryLedger',
+        builder: (_, _) => const InventoryLedgerScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryProductLots,
+        name: 'inventoryProductLots',
+        builder: (_, state) => InventoryProductLotsScreen(
+          productId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryDetail,
+        name: 'inventoryDetail',
+        builder: (_, state) => InventoryDetailScreen(
+          lotId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.inventoryMovements,
+        name: 'inventoryMovements',
+        builder: (_, state) => InventoryMovementsScreen(
+          lotId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
       ),
       GoRoute(
         path: RouteNames.consignment,

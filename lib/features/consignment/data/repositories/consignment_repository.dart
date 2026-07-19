@@ -29,9 +29,9 @@ class ConsignmentRepository {
           'per_page': 25,
           if (search?.isNotEmpty == true) 'search': search,
           if (status?.isNotEmpty == true) 'status': status,
-          if (clientId != null) 'client_id': clientId,
-          if (fromDate != null) 'from_date': fromDate,
-          if (toDate != null) 'to_date': toDate,
+          'client_id': ?clientId,
+          'from_date': ?fromDate,
+          'to_date': ?toDate,
         },
       );
       final body = response.data ?? {};

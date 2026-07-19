@@ -468,31 +468,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           // Search
           Expanded(
-            child: Container(
-              height: 36,
-              constraints: const BoxConstraints(maxWidth: 360),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
+            child: Tooltip(
+              message: 'Open inventory lookup',
+              child: InkWell(
+                onTap: () => context.go(RouteNames.inventoryLookup),
                 borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: AppDimensions.spaceMd),
-                  Icon(
-                    Icons.search_rounded,
-                    size: 16,
-                    color: AppColors.textMuted,
+                child: Container(
+                  height: 36,
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                    border: Border.all(color: AppColors.border),
                   ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: AppDimensions.spaceMd),
+                      Icon(
+                        Icons.search_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
 
-                  const SizedBox(width: AppDimensions.spaceSm),
-                  Text(
-                    'Search inventory, orders...',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textMuted,
-                    ),
+                      const SizedBox(width: AppDimensions.spaceSm),
+                      Text(
+                        'Search inventory, orders...',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

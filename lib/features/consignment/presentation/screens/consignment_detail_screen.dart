@@ -370,10 +370,11 @@ class ConsignmentDetailScreen extends ConsumerWidget {
       ref.invalidate(consignmentItemsProvider(id));
       ref.invalidate(consignmentDetailProvider(id));
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 
@@ -403,15 +404,17 @@ class ConsignmentDetailScreen extends ConsumerWidget {
       ref.invalidate(consignmentDetailProvider(id));
       ref.invalidate(consignmentItemsProvider(id));
       ref.invalidate(consignmentListProvider);
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Consignment confirmed.')));
+      }
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 }

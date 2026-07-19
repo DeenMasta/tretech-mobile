@@ -40,6 +40,15 @@ abstract final class RouteNames {
   static const String disposalCreate = '/disposal/create';
   static const String inventory = '/inventory';
   static const String inventoryDetail = '/inventory/:id';
+  static String inventoryDetailPath(int id) => '/inventory/$id';
+  static const String inventoryAllLots = '/inventory/lots';
+  static const String inventoryExpiringSoon = '/inventory/expiring-soon';
+  static const String inventoryLookup = '/inventory/lookup';
+  static const String inventoryLedger = '/inventory/ledger';
+  static const String inventoryProductLots = '/inventory/product/:id';
+  static String inventoryProductLotsPath(int id) => '/inventory/product/$id';
+  static const String inventoryMovements = '/inventory/:id/movements';
+  static String inventoryMovementsPath(int id) => '/inventory/$id/movements';
   static const String profile = '/profile';
   static const String settings = '/settings';
 }

@@ -20,6 +20,14 @@ abstract final class ApiEndpoints {
   static const String inventoryExpiringSoon =
       '$_base/inventory-units/expiring-soon';
   static const String inventoryLedger = '$_base/inventory-ledger';
+  static String inventoryUnitById(int id) => '$inventoryUnits/$id';
+  static String inventoryUnitMovements(int id) => '$inventoryUnits/$id/movements';
+  static String inventoryLookupByLot(String lotNumber) =>
+      '$inventoryUnits/lookup/by-lot/$lotNumber';
+  static String inventoryLookupByRef(String refNum) =>
+      '$inventoryUnits/lookup/by-ref/$refNum';
+  static String inventorySetsByProduct(int productId) =>
+      '$inventoryUnits/lookup/sets-by-product/$productId';
   static const String holdingArea = '$_base/holding-area';
 
   // ── Stock In ──────────────────────────────────────────────────
