@@ -2,6 +2,13 @@
 
 Tretech Warehouse & Inventory Mobile App
 
+## Architecture
+
+Feature-module conventions are documented in
+[Mobile Module Architecture Standard](docs/mobile-module-architecture.md).
+The Disposal frontend-parity implementation plan is in
+[Disposal Mobile Implementation Plan](docs/disposal-mobile-implementation-plan.md).
+
 ## Operational Notes
 
 - Stock-in item correction is intentionally not available in mobile.

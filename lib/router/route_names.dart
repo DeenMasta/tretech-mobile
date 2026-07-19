@@ -38,6 +38,14 @@ abstract final class RouteNames {
   static const String returnsCreate = '/returns/create';
   static const String disposal = '/disposal';
   static const String disposalCreate = '/disposal/create';
+  static const String disposalDetail = '/disposal/:id';
+  static String disposalDetailPath(int id) => '/disposal/$id';
+  static const String disposalEdit = '/disposal/:id/edit';
+  static String disposalEditPath(int id) => '/disposal/$id/edit';
+  static const String disposalItemAdd = '/disposal/:id/items/add';
+  static String disposalItemAddPath(int id) => '/disposal/$id/items/add';
+  static const String disposalComplete = '/disposal/:id/complete';
+  static String disposalCompletePath(int id) => '/disposal/$id/complete';
   static const String inventory = '/inventory';
   static const String inventoryDetail = '/inventory/:id';
   static String inventoryDetailPath(int id) => '/inventory/$id';

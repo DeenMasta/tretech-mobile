@@ -21,7 +21,8 @@ abstract final class ApiEndpoints {
       '$_base/inventory-units/expiring-soon';
   static const String inventoryLedger = '$_base/inventory-ledger';
   static String inventoryUnitById(int id) => '$inventoryUnits/$id';
-  static String inventoryUnitMovements(int id) => '$inventoryUnits/$id/movements';
+  static String inventoryUnitMovements(int id) =>
+      '$inventoryUnits/$id/movements';
   static String inventoryLookupByLot(String lotNumber) =>
       '$inventoryUnits/lookup/by-lot/$lotNumber';
   static String inventoryLookupByRef(String refNum) =>
@@ -66,6 +67,11 @@ abstract final class ApiEndpoints {
 
   // ── Disposals ─────────────────────────────────────────────────
   static const String disposals = '$_base/disposals';
+  static String disposalById(int id) => '$disposals/$id';
+  static String disposalItems(int id) => '${disposalById(id)}/items';
+  static String disposalItem(int disposalId, int itemId) =>
+      '${disposalItems(disposalId)}/$itemId';
+  static String disposalComplete(int id) => '${disposalById(id)}/complete';
 
   // ── Supplier Returns ──────────────────────────────────────────
   static const String supplierReturns = '$_base/supplier-returns';

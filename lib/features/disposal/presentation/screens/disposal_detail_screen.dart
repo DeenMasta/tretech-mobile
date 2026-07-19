@@ -1,0 +1,226 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/utils/date_formatter.dart';
+import '../../../../router/route_names.dart';
+import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_dimensions.dart';
+import '../../../../shared/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_error_widget.dart';
+import '../../../../shared/widgets/content_card.dart';
+import '../../../../shared/widgets/module_app_bar.dart';
+import '../../data/repositories/disposal_repository.dart';
+import '../providers/disposal_providers.dart';
+import '../widgets/disposal_widgets.dart';
+
+class DisposalDetailScreen extends ConsumerWidget {
+  const DisposalDetailScreen({super.key, required this.disposalId});
+  final int disposalId;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final disposalAsync = ref.watch(disposalDetailProvider(disposalId));
+    final itemsAsync = ref.watch(disposalItemsProvider(disposalId));
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: ModuleAppBar(
+        title: 'Disposal',
+        onBack: () => context.go(RouteNames.disposal),
+      ),
+      body: disposalAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(disposalDetailProvider(disposalId)),
+        ),
+        data: (disposal) {
+          final items = itemsAsync.asData?.value ?? disposal.items;
+          return ListView(
+            padding: const EdgeInsets.all(AppDimensions.spaceLg),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      disposal.disposalNo,
+                      style: AppTextStyles.titleLarge.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  DisposalStatusBadge(status: disposal.status),
+                ],
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              if (disposal.isDraft)
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push(
+                              RouteNames.disposalEditPath(disposalId),
+                            ),
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('Edit'),
+                          ),
+                        ),
+                        const SizedBox(width: AppDimensions.spaceSm),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => context.push(
+                              RouteNames.disposalItemAddPath(disposalId),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDimensions.buttonRadius,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.add_box_outlined),
+                            label: const Text('Add item'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (items.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: AppDimensions.spaceSm,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => context.push(
+                              RouteNames.disposalCompletePath(disposalId),
+                            ),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('Complete'),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              ContentCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Disposal context', style: AppTextStyles.titleSmall),
+                    const SizedBox(height: AppDimensions.spaceMd),
+                    DisposalInfoRow(
+                      label: 'Disposal date',
+                      value: disposal.disposedAt == null
+                          ? '-'
+                          : DateFormatter.toDisplay(disposal.disposedAt!),
+                    ),
+                    DisposalInfoRow(
+                      label: 'PIC user',
+                      value: disposal.picUser?.fullName ?? '-',
+                    ),
+                    DisposalInfoRow(
+                      label: 'Lots',
+                      value: '${disposal.itemsCount ?? items.length}',
+                    ),
+                    DisposalInfoRow(
+                      label: 'Remarks',
+                      value: disposal.remarks?.trim().isNotEmpty == true
+                          ? disposal.remarks!
+                          : '-',
+                    ),
+                    DisposalInfoRow(
+                      label: 'Completed at',
+                      value: disposal.completedAt == null
+                          ? '-'
+                          : DateFormatter.toDisplayDateTime(
+                              disposal.completedAt!,
+                            ),
+                    ),
+                    DisposalInfoRow(
+                      label: 'Completed by',
+                      value: disposal.completedByUser?.fullName ?? '-',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spaceLg),
+              Text('Disposal lots', style: AppTextStyles.titleMedium),
+              const SizedBox(height: AppDimensions.spaceSm),
+              itemsAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(AppDimensions.spaceLg),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => AppErrorWidget(
+                  message: e.toString(),
+                  onRetry: () =>
+                      ref.invalidate(disposalItemsProvider(disposalId)),
+                ),
+                data: (items) => items.isEmpty
+                    ? Text(
+                        'No disposal items yet.',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      )
+                    : Column(
+                        children: items
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppDimensions.spaceSm,
+                                ),
+                                child: DisposalItemTile(
+                                  item: item,
+                                  onDelete: disposal.isDraft
+                                      ? () => _delete(context, ref, item.id)
+                                      : null,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref, int itemId) async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remove disposal item?'),
+        content: const Text('This removes the lot from the draft disposal.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    try {
+      await ref.read(disposalRepositoryProvider).deleteItem(disposalId, itemId);
+      ref.invalidate(disposalItemsProvider(disposalId));
+      ref.invalidate(disposalDetailProvider(disposalId));
+      ref.invalidate(disposalListProvider);
+    } catch (e) {
+      if (context.mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+}

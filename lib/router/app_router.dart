@@ -13,6 +13,10 @@ import '../features/consignment/presentation/screens/consignment_detail_screen.d
 import '../features/consignment/presentation/screens/consignment_item_form_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/disposal/presentation/screens/disposal_screen.dart';
+import '../features/disposal/presentation/screens/disposal_complete_screen.dart';
+import '../features/disposal/presentation/screens/disposal_detail_screen.dart';
+import '../features/disposal/presentation/screens/disposal_form_screen.dart';
+import '../features/disposal/presentation/screens/disposal_item_form_screen.dart';
 import '../features/inventory/presentation/screens/inventory_all_lots_screen.dart';
 import '../features/inventory/presentation/screens/inventory_detail_screen.dart';
 import '../features/inventory/presentation/screens/inventory_expiring_soon_screen.dart';
@@ -260,6 +264,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.disposal,
         name: 'disposal',
         builder: (_, _) => const DisposalScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.disposalCreate,
+        name: 'disposalCreate',
+        builder: (_, _) => const DisposalFormScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.disposalDetail,
+        name: 'disposalDetail',
+        builder: (_, state) => DisposalDetailScreen(
+          disposalId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.disposalEdit,
+        name: 'disposalEdit',
+        builder: (_, state) => DisposalFormScreen(
+          disposalId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.disposalItemAdd,
+        name: 'disposalItemAdd',
+        builder: (_, state) => DisposalItemFormScreen(
+          disposalId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.disposalComplete,
+        name: 'disposalComplete',
+        builder: (_, state) => DisposalCompleteScreen(
+          disposalId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
       ),
       GoRoute(
         path: RouteNames.settings,
