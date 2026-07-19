@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -17,6 +21,8 @@ import '../../../inventory/data/models/inventory_unit_model.dart';
 import '../../../inventory/data/repositories/inventory_repository.dart';
 import '../../../stock_in/data/models/instrument_set_model.dart';
 import '../../../stock_in/data/repositories/master_data_repository.dart';
+import '../../../consignment/data/models/consignment_models.dart';
+import '../../../consignment/data/repositories/consignment_repository.dart';
 
 class ReturnScanItemScreen extends ConsumerStatefulWidget {
   const ReturnScanItemScreen({super.key, required this.sessionId});
@@ -39,9 +45,18 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   final _missingCtl = TextEditingController(text: '0');
   final _remarksCtl = TextEditingController();
 
+  static const EventChannel _scannerChannel = EventChannel(
+    'com.tretech/scanner',
+  );
+  StreamSubscription<dynamic>? _scannerSub;
+
   // ── State ─────────────────────────────────────────────────────────────────
   bool _isSaving = false;
   bool _isLookingUp = false;
+  bool _isLoadingConsignmentItems = false;
+  bool _consignmentItemsLoadFailed = false;
+  int? _loadedConsignmentId;
+  List<ConsignmentItem> _consignmentItems = const [];
   ReturnLotBrief? _resolvedLot;
   InventoryUnitModel? _resolvedLotUnit;
   InstrumentSetModel? _resolvedInstrumentSet;
@@ -54,6 +69,15 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   final List<ReturnSessionItem> _recentItems = [];
 
   @override
+  void initState() {
+    super.initState();
+    _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
+      if (!mounted || _isLookingUp) return;
+      _lookupScannedLot(data.toString());
+    });
+  }
+
+  @override
   void dispose() {
     _lotCtl.dispose();
     _returnedCtl.dispose();
@@ -61,6 +85,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     _damagedCtl.dispose();
     _missingCtl.dispose();
     _remarksCtl.dispose();
+    _scannerSub?.cancel();
     for (var ctl in _instrumentResultsCtls.values) {
       ctl.dispose();
     }
@@ -76,8 +101,202 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       helperText: 'Aim at the lot-number barcode or QR code on the package',
     );
     if (result == null || !mounted) return;
-    _lotCtl.text = result;
-    await _lookupLot(result);
+    await _lookupScannedLot(result);
+  }
+
+  /// Stock-in QR labels contain metadata such as
+  /// `V=1;REF=IMP-003;LOT=3456;MFG=-;EXP=-;PAD=0000`.
+  /// Returns must look up the lot value, not the whole QR payload.
+  String _lotNumberFromQrPayload(String rawValue) {
+    final value = rawValue.trim();
+    if (value.isEmpty) return value;
+
+    try {
+      final json = jsonDecode(value);
+      if (json is Map<String, dynamic>) {
+        final lot = json['lot_number']?.toString().trim();
+        if (lot?.isNotEmpty == true) return lot!;
+      }
+    } catch (_) {
+      // Continue with the compact and legacy QR label formats.
+    }
+
+    final match = RegExp(
+      r'(?:^|;)LOT[=:]([^;]+)',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (match?.group(1)?.trim().isNotEmpty == true) {
+      return match!.group(1)!.trim();
+    }
+
+    var parsed = value.split(';').first.trim();
+    if (parsed.contains('MFG=')) parsed = parsed.split('MFG=').first.trim();
+    if (parsed.contains('EXP=')) parsed = parsed.split('EXP=').first.trim();
+    return parsed;
+  }
+
+  Future<void> _lookupScannedLot(String rawValue) async {
+    final lotNumber = _lotNumberFromQrPayload(rawValue);
+    _lotCtl.text = lotNumber;
+    await _lookupLot(lotNumber);
+  }
+
+  Future<void> _selectConsignmentItem() async {
+    final returnedItems = [
+      ...?ref.read(returnDetailProvider(widget.sessionId)).session?.items,
+      ..._recentItems,
+    ];
+    final returnedLotIds = returnedItems
+        .map((item) => item.lotId)
+        .whereType<int>()
+        .toSet();
+    final returnedSetIds = returnedItems
+        .map((item) => item.instrumentSetId)
+        .whereType<int>()
+        .toSet();
+    final selectableItems = _consignmentItems.where((item) {
+      if (item.isSet) {
+        return item.instrumentSetId != null &&
+            !returnedSetIds.contains(item.instrumentSetId);
+      }
+      return item.lot != null && !returnedLotIds.contains(item.lot!.id);
+    }).toList();
+
+    final selected = await showModalBottomSheet<ConsignmentItem>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: AppDimensions.spaceSm),
+          children: [
+            const ListTile(title: Text('Items in this consignment')),
+            if (selectableItems.isEmpty)
+              const ListTile(
+                title: Text('All consignment items have already been added.'),
+              ),
+            ...selectableItems.map(
+              (item) => ListTile(
+                leading: Icon(
+                  item.isSet
+                      ? Icons.medical_services_outlined
+                      : Icons.inventory_2_outlined,
+                ),
+                title: Text(
+                  item.isSet
+                      ? item.instrumentSetName ?? 'Instrument set'
+                      : item.lot!.productName ?? item.lot!.lotNumber,
+                ),
+                subtitle: Text(
+                  item.isSet
+                      ? item.instrumentSetCode ?? ''
+                      : 'Lot: ${item.lot!.lotNumber}${item.lot!.refNum?.isNotEmpty == true ? ' · ${item.lot!.refNum}' : ''}',
+                ),
+                onTap: () => Navigator.pop(context, item),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    if (!selected.isSet) {
+      _lotCtl.text = selected.lot!.lotNumber;
+      await _lookupLot(selected.lot!.lotNumber);
+      return;
+    }
+
+    setState(() {
+      _isLookingUp = true;
+      _scanError = null;
+    });
+    try {
+      final set = await ref
+          .read(stockInMasterDataRepositoryProvider)
+          .getInstrumentSet(selected.instrumentSetId!);
+      if (!mounted) return;
+      _applyInstrumentSet(set);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _scanError = 'Instrument set could not be loaded.');
+      }
+    } finally {
+      if (mounted) setState(() => _isLookingUp = false);
+    }
+  }
+
+  void _clearInstrumentResults() {
+    _instrumentResults.clear();
+    for (final ctl in _instrumentResultsCtls.values) {
+      ctl.dispose();
+    }
+    _instrumentResultsCtls.clear();
+  }
+
+  /// Mirrors the web return form: include every set component at its expected
+  /// quantity, replacing any partial component selection currently entered.
+  void _addAllInstrumentComponents() {
+    final set = _resolvedInstrumentSet;
+    if (set == null) return;
+
+    setState(() {
+      for (final item in set.items) {
+        _instrumentResults[item.id] = item.quantity;
+        final controller = _instrumentResultsCtls[item.id];
+        if (controller != null) {
+          controller.text = item.quantity.toString();
+        } else {
+          _instrumentResultsCtls[item.id] = TextEditingController(
+            text: item.quantity.toString(),
+          );
+        }
+      }
+    });
+  }
+
+  void _applyInstrumentSet(InstrumentSetModel set) {
+    setState(() {
+      _lotCtl.clear();
+      _resolvedLot = null;
+      _resolvedLotUnit = null;
+      _resolvedInstrumentSet = set;
+      _clearInstrumentResults();
+      for (final item in set.items) {
+        _instrumentResults[item.id] = 0;
+        _instrumentResultsCtls[item.id] = TextEditingController(text: '0');
+      }
+    });
+  }
+
+  Future<void> _loadConsignmentItems(int consignmentId) async {
+    if (_isLoadingConsignmentItems || _loadedConsignmentId == consignmentId) {
+      return;
+    }
+    setState(() {
+      _isLoadingConsignmentItems = true;
+      _loadedConsignmentId = consignmentId;
+      _consignmentItemsLoadFailed = false;
+    });
+    try {
+      final items = await ref
+          .read(consignmentRepositoryProvider)
+          .items(consignmentId);
+      if (mounted) {
+        setState(() {
+          _consignmentItems = items;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _consignmentItemsLoadFailed = true;
+          _scanError = 'Consignment items could not be loaded.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingConsignmentItems = false);
+    }
   }
 
   Future<void> _lookupLot(String value) async {
@@ -86,11 +305,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
         _resolvedLot = null;
         _resolvedLotUnit = null;
         _resolvedInstrumentSet = null;
-        _instrumentResults.clear();
-        for (var ctl in _instrumentResultsCtls.values) {
-          ctl.dispose();
-        }
-        _instrumentResultsCtls.clear();
+        _clearInstrumentResults();
         _scanError = null;
       });
       return;
@@ -101,17 +316,16 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       _resolvedLot = null;
       _resolvedLotUnit = null;
       _resolvedInstrumentSet = null;
-      _instrumentResults.clear();
-      for (var ctl in _instrumentResultsCtls.values) {
-        ctl.dispose();
-      }
-      _instrumentResultsCtls.clear();
+      _clearInstrumentResults();
     });
 
     try {
       final unit = await ref
           .read(inventoryRepositoryProvider)
           .lookupByLot(value);
+      if (!_consignmentItems.any((item) => item.lot?.id == unit.id)) {
+        throw StateError('Lot is not registered in this consignment');
+      }
       final lotBrief = ReturnLotBrief(
         id: unit.id,
         lotNumber: unit.lotNumber,
@@ -129,6 +343,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
           _resolvedLotUnit = unit;
           _resolvedLot = lotBrief;
           _resolvedInstrumentSet = setModel;
+          _clearInstrumentResults();
           if (setModel != null) {
             for (final item in setModel.items) {
               _instrumentResults[item.id] = 0;
@@ -139,11 +354,15 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
           }
         });
       }
-    } catch (e) {
+    } on StateError {
       if (mounted) {
-        setState(() {
-          _scanError = 'Lot not found or could not be loaded.';
-        });
+        setState(
+          () => _scanError = 'This lot is not registered in this consignment.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _scanError = 'Lot not found or could not be loaded.');
       }
     } finally {
       if (mounted) setState(() => _isLookingUp = false);
@@ -153,9 +372,11 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<void> _submit({bool andNext = false}) async {
-    final lotNumber = _lotCtl.text.trim();
-    if (lotNumber.isEmpty && _resolvedLot == null) {
-      setState(() => _scanError = 'Please scan or enter a lot number.');
+    if (_resolvedLot == null && _resolvedInstrumentSet == null) {
+      setState(
+        () => _scanError =
+            'Please scan a lot or instrument set from this consignment.',
+      );
       return;
     }
 
@@ -179,7 +400,10 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       final item = await repo.scanItem(
         widget.sessionId,
         lotId: _resolvedLot?.id,
-        lotNumber: _resolvedLot == null ? lotNumber : null,
+        lotNumber: null,
+        instrumentSetId: _resolvedLot == null
+            ? _resolvedInstrumentSet?.id
+            : null,
         quantity: qty,
         usedQuantity: used,
         damagedQuantity: damaged,
@@ -227,11 +451,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       _resolvedLot = null;
       _resolvedLotUnit = null;
       _resolvedInstrumentSet = null;
-      _instrumentResults.clear();
-      for (var ctl in _instrumentResultsCtls.values) {
-        ctl.dispose();
-      }
-      _instrumentResultsCtls.clear();
+      _clearInstrumentResults();
       _scanError = null;
     });
   }
@@ -242,6 +462,18 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(returnDetailProvider(widget.sessionId));
     final session = state.session;
+    final consignmentId = session?.consignment?.id;
+    final consignmentItemsReady =
+        consignmentId != null &&
+        _loadedConsignmentId == consignmentId &&
+        !_isLoadingConsignmentItems &&
+        !_consignmentItemsLoadFailed;
+
+    if (consignmentId != null && _loadedConsignmentId != consignmentId) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadConsignmentItems(consignmentId),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -266,10 +498,12 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionHeader(title: 'Scan lot'),
+                const SectionHeader(title: 'Scan returned item'),
                 const SizedBox(height: AppDimensions.spaceXs),
                 Text(
-                  'Scan the barcode / QR code on the returned package.',
+                  consignmentItemsReady
+                      ? 'Scan a registered lot, or use the list to select a lot or instrument set.'
+                      : 'Loading items registered in this consignment…',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textMuted,
                   ),
@@ -283,12 +517,20 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
                   isLoading: _isLookingUp,
                   errorText: _scanError,
                   onScan: _onScanLot,
-                  onChanged: (v) => _lookupLot(v),
-                  onSubmitted: (v) => _lookupLot(v),
+                  onBrowse: _selectConsignmentItem,
+                  enabled: consignmentItemsReady,
+                  onSubmitted: _lookupScannedLot,
                 ),
                 if (_resolvedLot != null) ...[
                   const SizedBox(height: AppDimensions.spaceSm),
                   _ResolvedLotCard(lot: _resolvedLot!),
+                ],
+                if (_resolvedLot == null && _resolvedInstrumentSet != null) ...[
+                  const SizedBox(height: AppDimensions.spaceSm),
+                  _ResolvedItemCard(
+                    label: _resolvedInstrumentSet!.displayLabel,
+                    icon: Icons.medical_services_outlined,
+                  ),
                 ],
               ],
             ),
@@ -483,6 +725,13 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
             'Choose the returned components and enter the returned quantity for each.',
             style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
           ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          AppButton(
+            label: 'Add all missing components',
+            icon: Icons.add_circle_outline_rounded,
+            variant: AppButtonVariant.secondary,
+            onPressed: _addAllInstrumentComponents,
+          ),
           const SizedBox(height: AppDimensions.spaceLg),
           ..._resolvedInstrumentSet!.items.map((item) {
             return Padding(
@@ -636,6 +885,40 @@ class _ResolvedLotCard extends StatelessWidget {
 }
 
 // ── Recent scan tile ──────────────────────────────────────────────────────────
+
+class _ResolvedItemCard extends StatelessWidget {
+  const _ResolvedItemCard({
+    required this.label,
+    this.icon = Icons.inventory_2_outlined,
+  });
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.spaceMd),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.success, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.success),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ScannedItemTile extends StatelessWidget {
   const _ScannedItemTile({required this.item});

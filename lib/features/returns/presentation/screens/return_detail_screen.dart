@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -13,6 +16,7 @@ import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_banner.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/return_session_model.dart';
+import '../../data/repositories/returns_repository.dart';
 import '../providers/returns_detail_provider.dart';
 import '../providers/returns_list_provider.dart';
 import '../widgets/return_status_badge.dart';
@@ -53,15 +57,15 @@ class ReturnDetailScreen extends ConsumerWidget {
       );
     }
 
-    final permissions =
-        ref.watch(currentUserProvider)?.permissions ?? const [];
-    final canComplete = !session.isReadOnly &&
+    final permissions = ref.watch(currentUserProvider)?.permissions ?? const [];
+    final canComplete =
+        !session.isReadOnly &&
         !state.isSaving &&
-        (session.items?.isNotEmpty == true ||
-            (session.itemsCount ?? 0) > 0) &&
-        permissions.contains('return_sessions.finalize');
-    final canReopen = session.isCompleted &&
-        permissions.contains('return_sessions.reopen_reconciliation');
+        (session.items?.isNotEmpty == true || (session.itemsCount ?? 0) > 0) &&
+        permissions.contains('returns.finalize');
+    final canReopen =
+        session.isCompleted &&
+        permissions.contains('returns.reopen_reconciliation');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -73,6 +77,15 @@ class ReturnDetailScreen extends ConsumerWidget {
           onPressed: () => context.go(RouteNames.returns),
         ),
         title: Text(session.returnSessionNo, style: AppTextStyles.titleMedium),
+        actions: [
+          if (session.reconciliation != null)
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'Print usage / invoice note',
+              onPressed: () => _print(context, ref, session.id),
+            ),
+          const SizedBox(width: AppDimensions.spaceXs),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () =>
@@ -115,9 +128,7 @@ class ReturnDetailScreen extends ConsumerWidget {
             if (session.reconciliation != null &&
                 session.reconciliation!.items.isNotEmpty) ...[
               const SizedBox(height: AppDimensions.spaceLg),
-              _ReconciliationSection(
-                items: session.reconciliation!.items,
-              ),
+              _ReconciliationSection(items: session.reconciliation!.items),
             ],
 
             // ── Error banner ───────────────────────────────────────────────
@@ -144,8 +155,7 @@ class ReturnDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     ReturnSessionModel session,
   ) async {
-    final itemCount =
-        session.items?.length ?? (session.itemsCount ?? 0);
+    final itemCount = session.items?.length ?? (session.itemsCount ?? 0);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -175,6 +185,26 @@ class ReturnDetailScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Return session completed.')),
       );
+    }
+  }
+
+  Future<void> _print(
+    BuildContext context,
+    WidgetRef ref,
+    int sessionId,
+  ) async {
+    try {
+      final bytes = await ref.read(returnsRepositoryProvider).print(sessionId);
+      if (bytes.isEmpty) throw StateError('The return PDF was empty.');
+      await Printing.layoutPdf(
+        onLayout: (_) async => Uint8List.fromList(bytes),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Unable to print return: $e')));
+      }
     }
   }
 
@@ -210,9 +240,7 @@ class ReturnDetailScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Reopen'),
           ),
@@ -223,15 +251,11 @@ class ReturnDetailScreen extends ConsumerWidget {
     final reason = reasonCtl.text.trim();
     if (reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a reason for reopening.'),
-        ),
+        const SnackBar(content: Text('Please enter a reason for reopening.')),
       );
       return;
     }
-    await ref
-        .read(returnDetailProvider(sessionId).notifier)
-        .reopen(reason);
+    await ref.read(returnDetailProvider(sessionId).notifier).reopen(reason);
   }
 }
 
@@ -283,13 +307,13 @@ class _SessionCard extends StatelessWidget {
           if (session.startedAt != null)
             _kv('Started', DateFormatter.toDisplayDateTime(session.startedAt!)),
           if (session.completedAt != null)
-            _kv('Completed', DateFormatter.toDisplayDateTime(session.completedAt!)),
+            _kv(
+              'Completed',
+              DateFormatter.toDisplayDateTime(session.completedAt!),
+            ),
           if (session.completedByUser != null)
             _kv('Completed By', session.completedByUser!.fullName),
-          _kv(
-            'Lots',
-            '${session.itemsCount ?? session.items?.length ?? 0}',
-          ),
+          _kv('Lots', '${session.itemsCount ?? session.items?.length ?? 0}'),
           if (session.remarks != null && session.remarks!.isNotEmpty)
             _kv('Remarks', session.remarks!),
         ],
@@ -348,9 +372,8 @@ class _ItemsSection extends ConsumerWidget {
                   icon: Icons.qr_code_scanner_rounded,
                   size: AppButtonSize.sm,
                   isFullWidth: false,
-                  onPressed: () => context.push(
-                    RouteNames.returnsScanPath(sessionId),
-                  ),
+                  onPressed: () =>
+                      context.push(RouteNames.returnsScanPath(sessionId)),
                 )
               : null,
         ),
@@ -422,7 +445,9 @@ class _ItemsSection extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
-    await ref.read(returnDetailProvider(sessionId).notifier).deleteItem(item.id);
+    await ref
+        .read(returnDetailProvider(sessionId).notifier)
+        .deleteItem(item.id);
   }
 }
 
@@ -495,20 +520,15 @@ class _ItemTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          if (item.lot?.lotNumber != null)
-            _kv('Lot', item.lot!.lotNumber),
+          if (item.lot?.lotNumber != null) _kv('Lot', item.lot!.lotNumber),
           _kv('Returned', '${item.quantity ?? 0}'),
-          if ((item.usedQuantity ?? 0) > 0)
-            _kv('Used', '${item.usedQuantity}'),
+          if ((item.usedQuantity ?? 0) > 0) _kv('Used', '${item.usedQuantity}'),
           if ((item.damagedQuantity ?? 0) > 0)
             _kv('Damaged', '${item.damagedQuantity}'),
           if ((item.missingQuantity ?? 0) > 0)
             _kv('Missing', '${item.missingQuantity}'),
           if (item.returnedAt != null)
-            _kv(
-              'Scanned',
-              DateFormatter.toDisplayDateTime(item.returnedAt!),
-            ),
+            _kv('Scanned', DateFormatter.toDisplayDateTime(item.returnedAt!)),
           if (item.remarks != null && item.remarks!.isNotEmpty)
             _kv('Remarks', item.remarks!),
           const SizedBox(height: 6),
@@ -516,10 +536,7 @@ class _ItemTile extends StatelessWidget {
           Wrap(
             spacing: 6,
             children: [
-              _badge(
-                'Total: ${item.totalScanned}',
-                AppColors.textMuted,
-              ),
+              _badge('Total: ${item.totalScanned}', AppColors.textMuted),
             ],
           ),
         ],
@@ -614,10 +631,7 @@ class _CompleteActionCard extends StatelessWidget {
 }
 
 class _ReopenActionCard extends StatelessWidget {
-  const _ReopenActionCard({
-    required this.isSaving,
-    required this.onPressed,
-  });
+  const _ReopenActionCard({required this.isSaving, required this.onPressed});
 
   final bool isSaving;
   final VoidCallback onPressed;
@@ -667,10 +681,7 @@ class _ReconciliationSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: 'Usage / Invoice Report',
-          count: items.length,
-        ),
+        SectionHeader(title: 'Usage / Invoice Report', count: items.length),
         const SizedBox(height: AppDimensions.spaceSm),
         ...items.map((item) => _ReconciliationTile(item: item)),
       ],

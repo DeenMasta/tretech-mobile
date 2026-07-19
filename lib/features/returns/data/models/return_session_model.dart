@@ -18,13 +18,18 @@ class ReturnUserBrief {
 }
 
 class ReturnConsignmentBrief {
-  const ReturnConsignmentBrief({required this.id, required this.consignmentNo, this.clientName});
+  const ReturnConsignmentBrief({
+    required this.id,
+    required this.consignmentNo,
+    this.clientName,
+  });
 
   factory ReturnConsignmentBrief.fromJson(Map<String, dynamic> json) =>
       ReturnConsignmentBrief(
         id: (json['id'] as num).toInt(),
         consignmentNo: (json['consignment_no'] ?? '').toString(),
-        clientName: (json['client'] as Map<String, dynamic>?)?['client_name']?.toString(),
+        clientName: (json['client'] as Map<String, dynamic>?)?['client_name']
+            ?.toString(),
       );
 
   final int id;
@@ -38,7 +43,12 @@ class ReturnConsignmentBrief {
 // ── Lot brief attached to a returned item ────────────────────────────────
 
 class ReturnLotBrief {
-  const ReturnLotBrief({required this.id, required this.lotNumber, this.productName, this.refNum});
+  const ReturnLotBrief({
+    required this.id,
+    required this.lotNumber,
+    this.productName,
+    this.refNum,
+  });
 
   factory ReturnLotBrief.fromJson(Map<String, dynamic> json) {
     final product = json['product'] as Map<String, dynamic>?;
@@ -65,6 +75,7 @@ class ReturnSessionItem {
     this.lotId,
     this.lot,
     this.productName,
+    this.instrumentSetId,
     this.instrumentSetName,
     this.quantity,
     this.usedQuantity,
@@ -85,6 +96,9 @@ class ReturnSessionItem {
           ? ReturnLotBrief.fromJson(json['lot'] as Map<String, dynamic>)
           : null,
       productName: product?['product_name']?.toString(),
+      instrumentSetId:
+          (json['instrument_set_id'] as num?)?.toInt() ??
+          (instrumentSet?['id'] as num?)?.toInt(),
       instrumentSetName: instrumentSet?['set_name']?.toString(),
       quantity: (json['quantity'] as num?)?.toInt(),
       usedQuantity: (json['used_quantity'] as num?)?.toInt(),
@@ -100,6 +114,7 @@ class ReturnSessionItem {
   final int? lotId;
   final ReturnLotBrief? lot;
   final String? productName;
+  final int? instrumentSetId;
   final String? instrumentSetName;
   final int? quantity;
   final int? usedQuantity;
@@ -124,7 +139,10 @@ class ReturnSessionItem {
   }
 
   int get totalScanned =>
-      (quantity ?? 0) + (usedQuantity ?? 0) + (damagedQuantity ?? 0) + (missingQuantity ?? 0);
+      (quantity ?? 0) +
+      (usedQuantity ?? 0) +
+      (damagedQuantity ?? 0) +
+      (missingQuantity ?? 0);
 }
 
 // ── Reconciliation items (usage / invoice report) ────────────────────────

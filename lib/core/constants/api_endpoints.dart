@@ -67,6 +67,7 @@ abstract final class ApiEndpoints {
   static String returnSessionScan(int id) => '$returnSessions/$id/scan';
   static String returnSessionItem(int sessionId, int itemId) =>
       '$returnSessions/$sessionId/items/$itemId';
+  static String returnSessionPrint(int id) => '$returnSessions/$id/print';
   static String returnSessionComplete(int id) => '$returnSessions/$id/complete';
   static String returnSessionReopen(int id) => '$returnSessions/$id/reopen';
 

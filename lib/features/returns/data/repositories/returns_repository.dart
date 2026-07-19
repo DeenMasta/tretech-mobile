@@ -30,11 +30,21 @@ class ReturnsRepository {
   }) async {
     try {
       final params = <String, dynamic>{'page': page, 'per_page': perPage};
-      if (search != null && search.isNotEmpty) params['search'] = search;
-      if (status != null && status.isNotEmpty) params['status'] = status;
-      if (consignmentId != null) params['consignment_id'] = consignmentId;
-      if (fromDate != null && fromDate.isNotEmpty) params['from_date'] = fromDate;
-      if (toDate != null && toDate.isNotEmpty) params['to_date'] = toDate;
+      if (search != null && search.isNotEmpty) {
+        params['search'] = search;
+      }
+      if (status != null && status.isNotEmpty) {
+        params['status'] = status;
+      }
+      if (consignmentId != null) {
+        params['consignment_id'] = consignmentId;
+      }
+      if (fromDate != null && fromDate.isNotEmpty) {
+        params['from_date'] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        params['to_date'] = toDate;
+      }
 
       final response = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.returnSessions,
@@ -84,7 +94,8 @@ class ReturnsRepository {
         data: {
           'consignment_id': consignmentId,
           'pic_user_id': picUserId,
-          if (remarks != null && remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
+          if (remarks != null && remarks.trim().isNotEmpty)
+            'remarks': remarks.trim(),
         },
       );
       return ReturnSessionModel.fromJson(_unwrap(response.data ?? {}));
@@ -111,16 +122,28 @@ class ReturnsRepository {
   }) async {
     try {
       final payload = <String, dynamic>{};
-      if (lotId != null) payload['lot_id'] = lotId;
+      if (lotId != null) {
+        payload['lot_id'] = lotId;
+      }
       if (lotNumber != null && lotNumber.trim().isNotEmpty) {
         payload['lot_number'] = lotNumber.trim();
       }
-      if (productId != null) payload['product_id'] = productId;
-      if (instrumentSetId != null) payload['instrument_set_id'] = instrumentSetId;
+      if (productId != null) {
+        payload['product_id'] = productId;
+      }
+      if (instrumentSetId != null) {
+        payload['instrument_set_id'] = instrumentSetId;
+      }
       payload['quantity'] = quantity;
-      if (usedQuantity > 0) payload['used_quantity'] = usedQuantity;
-      if (damagedQuantity > 0) payload['damaged_quantity'] = damagedQuantity;
-      if (missingQuantity > 0) payload['missing_quantity'] = missingQuantity;
+      if (usedQuantity > 0) {
+        payload['used_quantity'] = usedQuantity;
+      }
+      if (damagedQuantity > 0) {
+        payload['damaged_quantity'] = damagedQuantity;
+      }
+      if (missingQuantity > 0) {
+        payload['missing_quantity'] = missingQuantity;
+      }
       if (sourceQrPayload != null && sourceQrPayload.trim().isNotEmpty) {
         payload['source_qr_payload'] = sourceQrPayload.trim();
       }
@@ -145,13 +168,28 @@ class ReturnsRepository {
 
   Future<void> deleteItem(int sessionId, int itemId) async {
     try {
-      await _dio.delete<void>(ApiEndpoints.returnSessionItem(sessionId, itemId));
+      await _dio.delete<void>(
+        ApiEndpoints.returnSessionItem(sessionId, itemId),
+      );
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());
     }
   }
 
   // ── Complete session ─────────────────────────────────────────
+
+  /// Downloads the usage/invoice PDF generated after a return is completed.
+  Future<List<int>> print(int sessionId) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        ApiEndpoints.returnSessionPrint(sessionId),
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data ?? const [];
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
 
   Future<ReturnSessionModel> complete(int sessionId) async {
     try {
