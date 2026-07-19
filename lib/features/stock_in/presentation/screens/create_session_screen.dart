@@ -128,22 +128,18 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: AppButton(
-                  label: 'Back',
-                  variant: AppButtonVariant.ghost,
-                  isFullWidth: false,
-                  onPressed: _saving ? null : () => context.pop(),
-                ),
+              AppButton(
+                label: 'Back',
+                variant: AppButtonVariant.ghost,
+                isFullWidth: false,
+                onPressed: _saving ? null : () => context.pop(),
               ),
-              const SizedBox(width: AppDimensions.spaceMd),
-              Expanded(
-                child: AppButton(
-                  label: 'Create session',
-                  isLoading: _saving,
-                  isFullWidth: false,
-                  onPressed: _saving ? null : _submit,
-                ),
+              const Spacer(),
+              AppButton(
+                label: 'Create session',
+                isLoading: _saving,
+                isFullWidth: false,
+                onPressed: _saving ? null : _submit,
               ),
             ],
           ),

@@ -16,6 +16,7 @@ class ConsignmentRepository {
       ? body['data'] as Map<String, dynamic>
       : body;
   Future<ConsignmentPage> list({
+    int page = 1,
     String? search,
     String? status,
     int? clientId,
@@ -26,6 +27,7 @@ class ConsignmentRepository {
       final response = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.consignments,
         queryParameters: {
+          'page': page,
           'per_page': 25,
           if (search?.isNotEmpty == true) 'search': search,
           if (status?.isNotEmpty == true) 'status': status,
@@ -44,6 +46,7 @@ class ConsignmentRepository {
         items: list,
         total: (pagination['total'] as num?)?.toInt() ?? list.length,
         lastPage: (pagination['last_page'] as num?)?.toInt() ?? 1,
+        currentPage: (pagination['current_page'] as num?)?.toInt() ?? page,
       );
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());
@@ -79,11 +82,17 @@ class ConsignmentRepository {
     required int clientId,
     required DateTime date,
     required int picUserId,
+    String? surgeonName,
+    String? caseDate,
+    String? caseName,
     String? remarks,
   }) => _save(ApiEndpoints.consignments, {
     'client_id': clientId,
     'consignment_at': _date(date),
     'pic_user_id': picUserId,
+    'surgeon_name': _nullable(surgeonName),
+    'case_date': _nullable(caseDate),
+    'case_name': _nullable(caseName),
     'remarks': _nullable(remarks),
   });
   Future<ConsignmentModel> update(
@@ -91,6 +100,9 @@ class ConsignmentRepository {
     required int clientId,
     required DateTime date,
     required int picUserId,
+    String? surgeonName,
+    String? caseDate,
+    String? caseName,
     String? remarks,
   }) async {
     try {
@@ -100,6 +112,9 @@ class ConsignmentRepository {
           'client_id': clientId,
           'consignment_at': _date(date),
           'pic_user_id': picUserId,
+          'surgeon_name': _nullable(surgeonName),
+          'case_date': _nullable(caseDate),
+          'case_name': _nullable(caseName),
           'remarks': _nullable(remarks),
         },
       );
@@ -151,25 +166,38 @@ class ConsignmentRepository {
     }
   }
 
-  Future<void> confirm(int id) async {
+  Future<void> updateItem(
+    int id,
+    int itemId, {
+    required int proposedQuantity,
+    required int quantity,
+    String? remarks,
+  }) async {
     try {
-      await _dio.post<void>('${ApiEndpoints.consignments}/$id/confirm');
+      await _dio.put<Map<String, dynamic>>(
+        '${ApiEndpoints.consignments}/$id/items/$itemId',
+        data: {
+          'proposed_quantity': proposedQuantity,
+          'quantity': quantity,
+          'remarks': _nullable(remarks),
+        },
+      );
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());
     }
   }
 
-  Future<ConsignmentModel> postConfirmEdit(
-    int id,
-    String reason,
-    String? remarks,
-  ) async {
+  Future<void> delete(int id) async {
     try {
-      final r = await _dio.put<Map<String, dynamic>>(
-        '${ApiEndpoints.consignments}/$id/post-confirm-edit',
-        data: {'reason': reason, 'remarks': _nullable(remarks)},
-      );
-      return ConsignmentModel.fromJson(_data(r.data ?? {}));
+      await _dio.delete<void>('${ApiEndpoints.consignments}/$id');
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<void> confirm(int id) async {
+    try {
+      await _dio.post<void>('${ApiEndpoints.consignments}/$id/confirm');
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());
     }

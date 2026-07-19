@@ -34,12 +34,12 @@ abstract final class RouteNames {
   static String consignmentEditPath(int id) => '/consignment/$id/edit';
   static const String consignmentItemAdd = '/consignment/:id/items/add';
   static String consignmentItemAddPath(int id) => '/consignment/$id/items/add';
-  static const String consignmentPostConfirmEdit =
-      '/consignment/:id/post-confirm-edit';
-  static String consignmentPostConfirmEditPath(int id) =>
-      '/consignment/$id/post-confirm-edit';
   static const String returns = '/returns';
   static const String returnsCreate = '/returns/create';
+  static const String returnsDetail = '/returns/:id';
+  static String returnsDetailPath(int id) => '/returns/$id';
+  static const String returnsScan = '/returns/:id/scan';
+  static String returnsScanPath(int id) => '/returns/$id/scan';
   static const String disposal = '/disposal';
   static const String disposalCreate = '/disposal/create';
   static const String disposalDetail = '/disposal/:id';

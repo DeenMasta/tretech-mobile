@@ -10,6 +10,7 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/more_filters_sheet.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/consignment_models.dart';
 import '../providers/consignment_providers.dart';
 import '../widgets/consignment_widgets.dart';
@@ -39,6 +40,7 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
   Widget build(BuildContext context) {
     final filter = ref.watch(consignmentFilterProvider);
     final page = ref.watch(consignmentListProvider(filter));
+    final permissions = ref.watch(currentUserProvider)?.permissions ?? const [];
     if (_search.text != filter.search) _search.text = filter.search;
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -46,20 +48,22 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
         title: 'Consignments',
         onBack: () => context.go(RouteNames.dashboard),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'consignment-create',
-        onPressed: () => context.push(RouteNames.consignmentCreate),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        icon: const Icon(Icons.add_rounded, color: Color(0xFF09090B)),
-        label: Text(
-          'Create consignment',
-          style: AppTextStyles.labelLarge.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF09090B),
-          ),
-        ),
-      ),
+      floatingActionButton: permissions.contains('consignments.create')
+          ? FloatingActionButton.extended(
+              heroTag: 'consignment-create',
+              onPressed: () => context.push(RouteNames.consignmentCreate),
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.textPrimary,
+              icon: const Icon(Icons.add_rounded, color: Color(0xFF09090B)),
+              label: Text(
+                'Create consignment',
+                style: AppTextStyles.labelLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF09090B),
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
           Container(
@@ -102,7 +106,7 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
                 onRefresh: () async {
                   ref.invalidate(consignmentListProvider(filter));
                 },
-                child: _list(data.items, filter),
+                child: _list(data, filter),
               ),
             ),
           ),
@@ -226,8 +230,11 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
   Widget _statusChip(String label, String value, String selected) {
     final isActive = selected == value;
     return InkWell(
-      onTap: () =>
-          _apply(ref.read(consignmentFilterProvider).copyWith(status: value)),
+      onTap: () => _apply(
+        ref
+            .read(consignmentFilterProvider)
+            .copyWith(status: value, resetPage: true),
+      ),
       borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
       child: Container(
         padding: const EdgeInsets.symmetric(
@@ -268,8 +275,19 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
     ),
     child: Text(label, style: AppTextStyles.labelSmall),
   );
-  void _apply(ConsignmentFilter value) =>
-      ref.read(consignmentFilterProvider.notifier).apply(value);
+  void _apply(ConsignmentFilter value) {
+    final current = ref.read(consignmentFilterProvider);
+    final filtersChanged =
+        current.search != value.search ||
+        current.status != value.status ||
+        current.clientId != value.clientId ||
+        current.fromDate != value.fromDate ||
+        current.toDate != value.toDate;
+    ref
+        .read(consignmentFilterProvider.notifier)
+        .apply(filtersChanged ? value.copyWith(page: 1) : value);
+  }
+
   Future<void> _filters(ConsignmentFilter current) async {
     final clients = await ref.read(consignmentClientsProvider.future);
     if (!mounted) return;
@@ -287,7 +305,8 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
     if (result != null) _apply(result);
   }
 
-  Widget _list(List<ConsignmentModel> rows, ConsignmentFilter filter) {
+  Widget _list(ConsignmentPage page, ConsignmentFilter filter) {
+    final rows = page.items;
     if (rows.isEmpty) {
       return ListView(
         children: [
@@ -311,9 +330,37 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
         AppDimensions.spaceLg,
         96,
       ),
-      itemCount: rows.length,
+      itemCount: rows.length + (page.lastPage > 1 ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: AppDimensions.spaceSm),
       itemBuilder: (_, i) {
+        if (i == rows.length) {
+          return Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: page.currentPage > 1
+                      ? () =>
+                            _apply(filter.copyWith(page: page.currentPage - 1))
+                      : null,
+                  child: const Text('Previous'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text('Page ${page.currentPage} of ${page.lastPage}'),
+              ),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: page.currentPage < page.lastPage
+                      ? () =>
+                            _apply(filter.copyWith(page: page.currentPage + 1))
+                      : null,
+                  child: const Text('Next'),
+                ),
+              ),
+            ],
+          );
+        }
         final item = rows[i];
         return InkWell(
           onTap: () => context.push(RouteNames.consignmentDetailPath(item.id)),

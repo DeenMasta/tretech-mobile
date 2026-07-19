@@ -41,21 +41,47 @@ class ConsignmentSection extends StatelessWidget {
     required this.title,
     required this.description,
     required this.child,
+    this.trailing,
   });
   final String title, description;
   final Widget child;
+  final Widget? trailing;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        title,
-        style: AppTextStyles.titleSmall.copyWith(fontWeight: FontWeight.w700),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        description,
-        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  maxLines: trailing == null ? null : 2,
+                  overflow: trailing == null
+                      ? TextOverflow.clip
+                      : TextOverflow.ellipsis,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: AppDimensions.spaceMd),
+            trailing!,
+          ],
+        ],
       ),
       const SizedBox(height: AppDimensions.spaceSm),
       child,

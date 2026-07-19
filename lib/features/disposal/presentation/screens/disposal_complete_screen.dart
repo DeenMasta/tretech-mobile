@@ -11,6 +11,7 @@ import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
 import '../../../dashboard/presentation/providers/dashboard_provider.dart';
 import '../../../inventory/presentation/providers/inventory_providers.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/disposal_repository.dart';
 import '../providers/disposal_providers.dart';
 import '../widgets/disposal_widgets.dart';
@@ -30,6 +31,12 @@ class _DisposalCompleteScreenState
   Widget build(BuildContext context) {
     final disposalAsync = ref.watch(disposalDetailProvider(widget.disposalId));
     final itemsAsync = ref.watch(disposalItemsProvider(widget.disposalId));
+    final canCreate =
+        ref
+            .watch(currentUserProvider)
+            ?.permissions
+            .contains('disposals.create') ??
+        false;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: ModuleAppBar(
@@ -45,14 +52,32 @@ class _DisposalCompleteScreenState
         ),
         data: (disposal) {
           final items = itemsAsync.asData?.value ?? disposal.items;
-          if (!disposal.isDraft)
+          final itemCount = disposal.itemsCount ?? items.length;
+          if (!canCreate) {
+            return const Center(
+              child: Text('You do not have permission to manage disposals.'),
+            );
+          }
+          if (!disposal.isDraft) {
             return const Center(
               child: Text('This disposal is already completed.'),
             );
-          if (items.isEmpty)
+          }
+          if (itemsAsync.isLoading && disposal.items.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (itemsAsync.hasError) {
+            return AppErrorWidget(
+              message: itemsAsync.error.toString(),
+              onRetry: () =>
+                  ref.invalidate(disposalItemsProvider(widget.disposalId)),
+            );
+          }
+          if (itemCount < 1) {
             return const Center(
               child: Text('Add at least one disposal item before completing.'),
             );
+          }
           return ListView(
             padding: const EdgeInsets.all(AppDimensions.spaceLg),
             children: [
@@ -77,7 +102,7 @@ class _DisposalCompleteScreenState
                     Text(disposal.disposalNo, style: AppTextStyles.titleSmall),
                     const SizedBox(height: AppDimensions.spaceSm),
                     Text(
-                      '${items.length} lot(s) to dispose',
+                      '$itemCount lot(s) to dispose',
                       style: AppTextStyles.bodyMedium,
                     ),
                   ],
@@ -146,12 +171,15 @@ class _DisposalCompleteScreenState
         context.go(RouteNames.disposalDetailPath(widget.disposalId));
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 }

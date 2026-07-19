@@ -13,6 +13,8 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
+import '../../../../shared/widgets/scan_input_field.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../inventory/data/models/inventory_unit_model.dart';
 import '../../../inventory/data/repositories/inventory_repository.dart';
 import '../../../stock_in/presentation/widgets/barcode_scanner_sheet.dart';
@@ -68,6 +70,12 @@ class _DisposalItemFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    final canCreate =
+        ref
+            .watch(currentUserProvider)
+            ?.permissions
+            .contains('disposals.create') ??
+        false;
     final detail = ref.watch(disposalDetailProvider(widget.disposalId));
     if (detail.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -83,6 +91,17 @@ class _DisposalItemFormScreenState
         ),
         body: const Center(
           child: Text('Only draft disposals can accept items.'),
+        ),
+      );
+    }
+    if (!canCreate) {
+      return Scaffold(
+        appBar: ModuleAppBar(
+          title: 'Disposal item',
+          onBack: () => context.pop(),
+        ),
+        body: const Center(
+          child: Text('You do not have permission to manage disposals.'),
         ),
       );
     }
@@ -129,15 +148,12 @@ class _DisposalItemFormScreenState
                 'Scan the lot barcode or QR code, or search inventory manually.',
             child: Column(
               children: [
-                AppTextField(
+                ScanInputField(
                   controller: _lotCtl,
                   label: 'Lot',
                   hint: 'Scan or enter lot number',
-                  prefixIcon: Icons.qr_code_scanner_rounded,
-                  onPrefixIconTap: _scanLot,
-                  suffixIcon: Icons.list_alt_rounded,
-                  onSuffixIconTap: _chooseLot,
-                  textInputAction: TextInputAction.search,
+                  onScan: _scanLot,
+                  onBrowse: _chooseLot,
                   isLoading: _isScanning,
                   onSubmitted: (_) => _findLot(),
                   onChanged: (value) {

@@ -103,22 +103,20 @@ class ConsignmentModel {
     required this.status,
     this.client,
     required this.consignmentAt,
+    this.picUserId,
     this.picName,
+    this.surgeonName,
+    this.caseDate,
+    this.caseName,
     this.remarks,
     this.itemsCount,
     this.confirmedAt,
     this.confirmedBy,
-    this.editedAfterConfirmation = false,
-    this.lastEditAt,
-    this.lastEditedBy,
-    this.lastEditReason,
   });
   factory ConsignmentModel.fromJson(Map<String, dynamic> json) {
     final client = json['client'] as Map<String, dynamic>?;
     final pic = json['pic_user'] as Map<String, dynamic>?;
     final confirmed = json['confirmed_by_user'] as Map<String, dynamic>?;
-    final lastEditor =
-        json['last_post_confirm_edit_by_user'] as Map<String, dynamic>?;
     return ConsignmentModel(
       id: (json['id'] as num).toInt(),
       number: (json['consignment_no'] ?? '').toString(),
@@ -127,17 +125,17 @@ class ConsignmentModel {
       consignmentAt:
           DateTime.tryParse((json['consignment_at'] ?? '').toString()) ??
           DateTime.now(),
+      picUserId:
+          (json['pic_user_id'] as num?)?.toInt() ??
+          (pic?['id'] as num?)?.toInt(),
       picName: pic?['full_name']?.toString(),
+      surgeonName: json['surgeon_name']?.toString(),
+      caseDate: DateTime.tryParse((json['case_date'] ?? '').toString()),
+      caseName: json['case_name']?.toString(),
       remarks: json['remarks']?.toString(),
       itemsCount: (json['items_count'] as num?)?.toInt(),
       confirmedAt: DateTime.tryParse((json['confirmed_at'] ?? '').toString()),
       confirmedBy: confirmed?['full_name']?.toString(),
-      editedAfterConfirmation: json['edited_after_confirmation'] == true,
-      lastEditAt: DateTime.tryParse(
-        (json['last_post_confirm_edit_at'] ?? '').toString(),
-      ),
-      lastEditedBy: lastEditor?['full_name']?.toString(),
-      lastEditReason: json['last_post_confirm_edit_reason']?.toString(),
     );
   }
   final int id;
@@ -145,15 +143,15 @@ class ConsignmentModel {
   final String status;
   final ClientBrief? client;
   final DateTime consignmentAt;
+  final int? picUserId;
   final String? picName;
+  final String? surgeonName;
+  final DateTime? caseDate;
+  final String? caseName;
   final String? remarks;
   final int? itemsCount;
   final DateTime? confirmedAt;
   final String? confirmedBy;
-  final bool editedAfterConfirmation;
-  final DateTime? lastEditAt;
-  final String? lastEditedBy;
-  final String? lastEditReason;
   bool get isDraft => status == 'draft';
   bool get isConfirmed => status == 'confirmed';
 }
@@ -163,8 +161,10 @@ class ConsignmentPage {
     required this.items,
     required this.total,
     required this.lastPage,
+    required this.currentPage,
   });
   final List<ConsignmentModel> items;
   final int total;
   final int lastPage;
+  final int currentPage;
 }

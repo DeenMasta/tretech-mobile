@@ -304,6 +304,7 @@ final inventorySetsProvider = FutureProvider.autoDispose
             .listInstrumentSets(
               search: query.search,
               status: query.status,
+              sort: 'available_qty_desc',
               page: query.page,
               perPage: query.perPage,
             );

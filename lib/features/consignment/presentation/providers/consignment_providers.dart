@@ -6,6 +6,7 @@ import '../../data/repositories/consignment_repository.dart';
 class ConsignmentFilter {
   const ConsignmentFilter({
     this.search = '',
+    this.page = 1,
     this.status = '',
     this.clientId,
     this.clientName,
@@ -13,6 +14,7 @@ class ConsignmentFilter {
     this.toDate,
   });
   final String search;
+  final int page;
   final String status;
   final int? clientId;
   final String? clientName;
@@ -20,6 +22,7 @@ class ConsignmentFilter {
   final DateTime? toDate;
   ConsignmentFilter copyWith({
     String? search,
+    int? page,
     String? status,
     int? clientId,
     String? clientName,
@@ -28,8 +31,10 @@ class ConsignmentFilter {
     bool clearClient = false,
     bool clearFrom = false,
     bool clearTo = false,
+    bool resetPage = false,
   }) => ConsignmentFilter(
     search: search ?? this.search,
+    page: resetPage ? 1 : page ?? this.page,
     status: status ?? this.status,
     clientId: clearClient ? null : clientId ?? this.clientId,
     clientName: clearClient ? null : clientName ?? this.clientName,
@@ -40,12 +45,14 @@ class ConsignmentFilter {
   bool operator ==(Object other) =>
       other is ConsignmentFilter &&
       other.search == search &&
+      other.page == page &&
       other.status == status &&
       other.clientId == clientId &&
       other.fromDate == fromDate &&
       other.toDate == toDate;
   @override
-  int get hashCode => Object.hash(search, status, clientId, fromDate, toDate);
+  int get hashCode =>
+      Object.hash(page, search, status, clientId, fromDate, toDate);
 }
 
 class ConsignmentFilterNotifier extends StateNotifier<ConsignmentFilter> {
@@ -66,6 +73,7 @@ final consignmentListProvider = FutureProvider.autoDispose
       (ref, filter) => ref
           .watch(consignmentRepositoryProvider)
           .list(
+            page: filter.page,
             search: filter.search,
             status: filter.status,
             clientId: filter.clientId,

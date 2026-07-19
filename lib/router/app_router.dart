@@ -25,7 +25,10 @@ import '../features/inventory/presentation/screens/inventory_lookup_screen.dart'
 import '../features/inventory/presentation/screens/inventory_movements_screen.dart';
 import '../features/inventory/presentation/screens/inventory_product_lots_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
-import '../features/returns/presentation/screens/returns_screen.dart';
+import '../features/returns/presentation/screens/returns_list_screen.dart';
+import '../features/returns/presentation/screens/create_return_session_screen.dart';
+import '../features/returns/presentation/screens/return_detail_screen.dart';
+import '../features/returns/presentation/screens/return_scan_item_screen.dart';
 import '../features/stock_in/presentation/screens/confirmation_screen.dart';
 import '../features/stock_in/presentation/screens/create_session_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_detail_screen.dart';
@@ -257,17 +260,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: RouteNames.consignmentPostConfirmEdit,
-        name: 'consignmentPostConfirmEdit',
-        builder: (_, state) => ConsignmentFormScreen(
-          consignmentId: int.parse(state.pathParameters['id'] ?? '0'),
-          postConfirmEdit: true,
+        path: RouteNames.returns,
+        name: 'returns',
+        builder: (_, _) => const ReturnsListScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.returnsCreate,
+        name: 'returnsCreate',
+        builder: (_, _) => const CreateReturnSessionScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.returnsDetail,
+        name: 'returnsDetail',
+        builder: (_, state) => ReturnDetailScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
         ),
       ),
       GoRoute(
-        path: RouteNames.returns,
-        name: 'returns',
-        builder: (_, _) => const ReturnsScreen(),
+        path: RouteNames.returnsScan,
+        name: 'returnsScan',
+        builder: (_, state) => ReturnScanItemScreen(
+          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
       ),
       GoRoute(
         path: RouteNames.disposal,

@@ -106,6 +106,7 @@ class InventoryRepository {
   Future<PaginatedResult<InventorySetAvailabilityModel>> listInstrumentSets({
     String? search,
     String? status,
+    String? sort,
     int page = 1,
     int perPage = 15,
   }) async {
@@ -117,6 +118,7 @@ class InventoryRepository {
           'per_page': perPage,
           'search': (search ?? '').trim().isEmpty ? null : search,
           'status': (status ?? '').isEmpty || status == 'all' ? null : status,
+          'sort': (sort ?? '').trim().isEmpty ? null : sort,
           'include_availability': true,
         },
       );

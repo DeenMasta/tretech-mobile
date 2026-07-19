@@ -10,6 +10,8 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
+import '../../../../shared/widgets/section_header.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/disposal_repository.dart';
 import '../providers/disposal_providers.dart';
 import '../widgets/disposal_widgets.dart';
@@ -19,6 +21,19 @@ class DisposalDetailScreen extends ConsumerWidget {
   final int disposalId;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final permissions = ref.watch(currentUserProvider)?.permissions ?? const [];
+    if (!permissions.contains('disposals.view')) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: ModuleAppBar(
+          title: 'Disposal',
+          onBack: () => context.go(RouteNames.disposal),
+        ),
+        body: const Center(
+          child: Text('You do not have permission to view disposals.'),
+        ),
+      );
+    }
     final disposalAsync = ref.watch(disposalDetailProvider(disposalId));
     final itemsAsync = ref.watch(disposalItemsProvider(disposalId));
     return Scaffold(
@@ -35,6 +50,9 @@ class DisposalDetailScreen extends ConsumerWidget {
         ),
         data: (disposal) {
           final items = itemsAsync.asData?.value ?? disposal.items;
+          final itemCount = disposal.itemsCount ?? items.length;
+          final canManageDraft =
+              disposal.isDraft && permissions.contains('disposals.create');
           return ListView(
             padding: const EdgeInsets.all(AppDimensions.spaceLg),
             children: [
@@ -52,7 +70,7 @@ class DisposalDetailScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppDimensions.spaceMd),
-              if (disposal.isDraft)
+              if (canManageDraft)
                 Column(
                   children: [
                     Row(
@@ -87,7 +105,7 @@ class DisposalDetailScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    if (items.isNotEmpty)
+                    if (itemCount > 0)
                       Padding(
                         padding: const EdgeInsets.only(
                           top: AppDimensions.spaceSm,
@@ -148,7 +166,7 @@ class DisposalDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppDimensions.spaceLg),
-              Text('Disposal lots', style: AppTextStyles.titleMedium),
+              SectionHeader(title: 'Disposal lots', count: itemCount),
               const SizedBox(height: AppDimensions.spaceSm),
               itemsAsync.when(
                 loading: () => const Padding(
@@ -176,7 +194,7 @@ class DisposalDetailScreen extends ConsumerWidget {
                                 ),
                                 child: DisposalItemTile(
                                   item: item,
-                                  onDelete: disposal.isDraft
+                                  onDelete: canManageDraft
                                       ? () => _delete(context, ref, item.id)
                                       : null,
                                 ),
@@ -217,10 +235,11 @@ class DisposalDetailScreen extends ConsumerWidget {
       ref.invalidate(disposalDetailProvider(disposalId));
       ref.invalidate(disposalListProvider);
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 }

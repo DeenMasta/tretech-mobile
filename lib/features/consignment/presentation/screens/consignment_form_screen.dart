@@ -10,20 +10,15 @@ import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/content_card.dart';
-import '../../../../shared/widgets/module_app_bar.dart';
+import '../../../../shared/widgets/section_header.dart';
 import '../../data/models/consignment_models.dart';
 import '../../data/repositories/consignment_repository.dart';
 import '../providers/consignment_providers.dart';
 import '../widgets/consignment_widgets.dart';
 
 class ConsignmentFormScreen extends ConsumerStatefulWidget {
-  const ConsignmentFormScreen({
-    super.key,
-    this.consignmentId,
-    this.postConfirmEdit = false,
-  });
+  const ConsignmentFormScreen({super.key, this.consignmentId});
   final int? consignmentId;
-  final bool postConfirmEdit;
   @override
   ConsumerState<ConsignmentFormScreen> createState() =>
       _ConsignmentFormScreenState();
@@ -32,15 +27,21 @@ class ConsignmentFormScreen extends ConsumerStatefulWidget {
 class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
   final _form = GlobalKey<FormState>();
   final _remarks = TextEditingController();
-  final _reason = TextEditingController();
+  final _surgeon = TextEditingController();
+  final _caseDate = TextEditingController();
+  final _caseName = TextEditingController();
   ClientBrief? _client;
   DateTime _date = DateTime.now();
   bool _saving = false;
   bool _loaded = false;
+  bool _showClientError = false;
+  int? _existingPicId;
   @override
   void dispose() {
     _remarks.dispose();
-    _reason.dispose();
+    _surgeon.dispose();
+    _caseDate.dispose();
+    _caseName.dispose();
     super.dispose();
   }
 
@@ -54,7 +55,11 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
       final c = detail!.value!;
       _client = c.client;
       _date = c.consignmentAt;
+      _existingPicId = c.picUserId;
       _remarks.text = c.remarks ?? '';
+      _surgeon.text = c.surgeonName ?? '';
+      _caseDate.text = _apiDate(c.caseDate);
+      _caseName.text = c.caseName ?? '';
       _loaded = true;
     }
     if (detail?.isLoading == true && !_loaded) return _loading();
@@ -62,25 +67,44 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
       return Scaffold(body: AppErrorWidget(message: detail!.error.toString()));
     }
     final user = ref.watch(currentUserProvider);
-    final pageTitle = widget.postConfirmEdit
-        ? 'Update confirmed consignment'
-        : isEdit
-        ? 'Consignment details'
-        : 'Start a consignment';
-    final description = widget.postConfirmEdit
-        ? 'Confirmed consignments require a reason before header notes are changed.'
-        : isEdit
-        ? 'Update the draft consignment header before confirmation.'
-        : 'Start a draft consignment before adding the lots to be supplied.';
+    final title = isEdit ? 'Edit consignment' : 'Create consignment';
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: ModuleAppBar(
-        title: widget.postConfirmEdit
-            ? 'Post-confirm edit'
-            : isEdit
-            ? 'Edit consignment'
-            : 'New consignment',
-        onBack: () => context.pop(),
+      appBar: AppBar(
+        backgroundColor: AppColors.sidebarBg,
+        title: Text(title, style: AppTextStyles.titleMedium),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(
+            AppDimensions.spaceLg,
+            AppDimensions.spaceMd,
+            AppDimensions.spaceLg,
+            AppDimensions.spaceLg,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.sidebarBg,
+            border: Border(top: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            children: [
+              AppButton(
+                label: 'Back',
+                variant: AppButtonVariant.ghost,
+                isFullWidth: false,
+                onPressed: _saving ? null : () => context.pop(),
+              ),
+              const Spacer(),
+              AppButton(
+                label: isEdit ? 'Save changes' : 'Create consignment',
+                isLoading: _saving,
+                isFullWidth: false,
+                onPressed: _saving ? null : _submit,
+              ),
+            ],
+          ),
+        ),
       ),
       body: SafeArea(
         child: Form(
@@ -88,49 +112,8 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
           child: ListView(
             padding: const EdgeInsets.all(AppDimensions.spaceLg),
             children: [
-              Text(
-                pageTitle,
-                style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (widget.postConfirmEdit)
-                _postConfirmForm()
-              else
-                _headerForm(user?.id, user?.name ?? user?.email ?? '-'),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppButton(
-                      label: 'Cancel',
-                      variant: AppButtonVariant.outlined,
-                      onPressed: () => context.pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppButton(
-                      label: widget.postConfirmEdit
-                          ? 'Save post-confirm edit'
-                          : isEdit
-                          ? 'Save changes'
-                          : 'Create consignment',
-                      isLoading: _saving,
-                      onPressed: _submit,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              _headerForm(user?.name ?? user?.email ?? '-', isEdit: isEdit),
+              const SizedBox(height: AppDimensions.space5xl),
             ],
           ),
         ),
@@ -143,111 +126,129 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
     appBar: AppBar(title: const Text('Consignment')),
     body: const Center(child: CircularProgressIndicator()),
   );
-  Widget _headerForm(int? userId, String userName) => Column(
+  Widget _headerForm(String userName, {required bool isEdit}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      ConsignmentSection(
-        title: 'Header details',
-        description:
-            'Choose the client. The date and PIC are set automatically.',
-        child: ContentCard(
-          child: Column(
-            children: [
-              InkWell(
-                onTap: _chooseClient,
-                borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Client',
-                    prefixIcon: const Icon(Icons.business_outlined, size: 18),
-                    suffixIcon: const Icon(Icons.search_rounded, size: 18),
-                    filled: true,
-                    fillColor: AppColors.surfaceElevated,
-                  ),
-                  child: Text(
-                    _client?.name ?? 'Search and choose client',
-                    style: _client == null
-                        ? AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textMuted,
-                          )
-                        : AppTextStyles.bodyMedium,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Consignment date'),
-                subtitle: Text(displayDate(_date)),
-                trailing: const Icon(Icons.lock_outline, size: 18),
-                onTap: null,
-              ),
-              Text(
-                'Auto-set to today',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('PIC user'),
-                subtitle: Text(userName),
-                trailing: const Icon(Icons.lock_outline, size: 18),
-              ),
-              Text(
-                'Auto-filled from your account',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
+      Text(
+        isEdit
+            ? 'Update the draft consignment header before items are confirmed.'
+            : 'Capture the consignment header before items are added.',
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: AppColors.textSecondary,
         ),
       ),
-      const SizedBox(height: 20),
-      ConsignmentSection(
-        title: 'Notes',
-        description: 'Optional context for the consignment workflow.',
-        child: ContentCard(
-          child: AppTextField(
-            controller: _remarks,
-            label: 'Remarks',
-            hint: 'Enter any consignment notes',
-            maxLines: 4,
-            maxLength: 1000,
-          ),
+      const SizedBox(height: AppDimensions.spaceSm),
+      Text(
+        isEdit
+            ? 'The draft remains editable until it is confirmed.'
+            : 'After save, the draft consignment opens so you can add lots or instrument sets.',
+        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+      ),
+      const SizedBox(height: AppDimensions.spaceLg),
+      ContentCard(
+        padding: const EdgeInsets.all(AppDimensions.spaceLg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader(title: 'Consignment session'),
+            const SizedBox(height: AppDimensions.spaceXs),
+            Text(
+              'Match the web draft-consignment flow before item capture starts.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: AppDimensions.spaceLg),
+            _ClientPickerField(
+              value: _client?.name,
+              onTap: _chooseClient,
+              errorText: _showClientError ? 'Client is required.' : null,
+            ),
+            const SizedBox(height: AppDimensions.spaceMd),
+            _ReadOnlyField(
+              label: 'Consignment date',
+              value: displayDate(_date),
+              helperText: isEdit
+                  ? 'Captured when the draft was created'
+                  : 'Automatically set when the draft is created',
+              icon: Icons.event_outlined,
+            ),
+            const SizedBox(height: AppDimensions.spaceMd),
+            _ReadOnlyField(
+              label: 'PIC user',
+              value: userName,
+              helperText: isEdit
+                  ? 'Assigned when the draft was created'
+                  : 'Automatically assigned to your account',
+              icon: Icons.person_outline,
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppDimensions.spaceLg),
+      ContentCard(
+        padding: const EdgeInsets.all(AppDimensions.spaceLg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader(title: 'Surgery details'),
+            const SizedBox(height: AppDimensions.spaceXs),
+            Text(
+              'Optional context for the surgical case.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: AppDimensions.spaceLg),
+            AppTextField(
+              controller: _surgeon,
+              label: 'Surgeon',
+              hint: 'e.g. Dr. John Doe',
+              maxLength: 255,
+            ),
+            const SizedBox(height: AppDimensions.spaceMd),
+            _CaseDatePickerField(
+              value: DateTime.tryParse(_caseDate.text),
+              enabled: !_saving,
+              onTap: _pickCaseDate,
+              onClear: () => setState(_caseDate.clear),
+            ),
+            const SizedBox(height: AppDimensions.spaceMd),
+            AppTextField(
+              controller: _caseName,
+              label: 'Case',
+              hint: 'e.g. Total Knee Replacement',
+              maxLength: 255,
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppDimensions.spaceLg),
+      ContentCard(
+        padding: const EdgeInsets.all(AppDimensions.spaceLg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader(title: 'Notes'),
+            const SizedBox(height: AppDimensions.spaceXs),
+            Text(
+              'Optional context for downstream review.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: AppDimensions.spaceLg),
+            AppTextField(
+              controller: _remarks,
+              label: 'Remarks',
+              hint: 'Enter any consignment notes',
+              maxLines: 4,
+              maxLength: 1000,
+            ),
+          ],
         ),
       ),
     ],
-  );
-  Widget _postConfirmForm() => ConsignmentSection(
-    title: 'Reason',
-    description: 'The backend requires a reason for edits after confirmation.',
-    child: ContentCard(
-      child: Column(
-        children: [
-          AppTextField(
-            controller: _reason,
-            label: 'Reason',
-            hint: 'Explain why this confirmed consignment needs updating',
-            maxLines: 3,
-            maxLength: 1000,
-            validator: (v) => (v ?? '').trim().length < 5
-                ? 'Reason must be at least 5 characters.'
-                : null,
-          ),
-          const SizedBox(height: 16),
-          AppTextField(
-            controller: _remarks,
-            label: 'Updated remarks',
-            hint: 'Revise the remarks if needed',
-            maxLines: 4,
-            maxLength: 1000,
-          ),
-        ],
-      ),
-    ),
   );
   Future<void> _chooseClient() async {
     final clients = await ref.read(consignmentClientsProvider.future);
@@ -259,34 +260,20 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
       label: (ClientBrief c) => c.name,
       searchHint: 'Search clients',
     );
-    if (picked != null) setState(() => _client = picked);
+    if (picked != null) {
+      setState(() {
+        _client = picked;
+        _showClientError = false;
+      });
+    }
   }
 
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     final repo = ref.read(consignmentRepositoryProvider);
     final current = ref.read(currentUserProvider);
-    if (widget.postConfirmEdit) {
-      if (widget.consignmentId == null) return;
-      setState(() => _saving = true);
-      try {
-        await repo.postConfirmEdit(
-          widget.consignmentId!,
-          _reason.text,
-          _remarks.text,
-        );
-        if (mounted) {
-          ref.invalidate(consignmentDetailProvider(widget.consignmentId!));
-          context.go(RouteNames.consignmentDetailPath(widget.consignmentId!));
-        }
-      } catch (e) {
-        _error(e);
-      } finally {
-        if (mounted) setState(() => _saving = false);
-      }
-      return;
-    }
     if (_client == null) {
+      setState(() => _showClientError = true);
       _error('Client is required.');
       return;
     }
@@ -301,13 +288,19 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
               clientId: _client!.id,
               date: _date,
               picUserId: current.id,
+              surgeonName: _surgeon.text,
+              caseDate: _caseDate.text,
+              caseName: _caseName.text,
               remarks: _remarks.text,
             )
           : await repo.update(
               widget.consignmentId!,
               clientId: _client!.id,
               date: _date,
-              picUserId: current.id,
+              picUserId: _existingPicId ?? current.id,
+              surgeonName: _surgeon.text,
+              caseDate: _caseDate.text,
+              caseName: _caseName.text,
               remarks: _remarks.text,
             );
       if (mounted) {
@@ -322,11 +315,226 @@ class _ConsignmentFormScreenState extends ConsumerState<ConsignmentFormScreen> {
     }
   }
 
+  Future<void> _pickCaseDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(_caseDate.text) ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 10),
+      helpText: 'Select case date',
+    );
+    if (picked != null && mounted) {
+      setState(() => _caseDate.text = _apiDate(picked));
+    }
+  }
+
   void _error(Object error) {
     if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
+  }
+
+  String _apiDate(DateTime? value) => value == null
+      ? ''
+      : '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
+class _CaseDatePickerField extends StatelessWidget {
+  const _CaseDatePickerField({
+    required this.value,
+    required this.enabled,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final DateTime? value;
+  final bool enabled;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: enabled ? onTap : null,
+    borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.spaceMd,
+        vertical: AppDimensions.spaceMd,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 18,
+            color: AppColors.textMuted,
+          ),
+          const SizedBox(width: AppDimensions.spaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Date case',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceXxs),
+                Text(
+                  value == null ? 'Tap to pick case date' : displayDate(value),
+                  style: value == null
+                      ? AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textMuted,
+                        )
+                      : AppTextStyles.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          if (value != null)
+            IconButton(
+              icon: const Icon(Icons.clear_rounded, size: 18),
+              color: AppColors.textMuted,
+              onPressed: enabled ? onClear : null,
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  const _ReadOnlyField({
+    required this.label,
+    required this.value,
+    required this.helperText,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final String helperText;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: AppTextStyles.labelMedium.copyWith(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.spaceMd,
+          vertical: AppDimensions.spaceMd,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.textMuted),
+            const SizedBox(width: AppDimensions.spaceMd),
+            Expanded(child: Text(value, style: AppTextStyles.bodyMedium)),
+          ],
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        helperText,
+        style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
+      ),
+    ],
+  );
+}
+
+class _ClientPickerField extends StatelessWidget {
+  const _ClientPickerField({required this.onTap, this.value, this.errorText});
+
+  final String? value;
+  final String? errorText;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = value?.trim().isNotEmpty == true;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Client',
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spaceMd,
+              vertical: AppDimensions.spaceMd,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+              border: Border.all(
+                color: errorText == null ? AppColors.border : AppColors.error,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.business_outlined,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+                const SizedBox(width: AppDimensions.spaceMd),
+                Expanded(
+                  child: Text(
+                    hasValue ? value! : 'Choose client',
+                    style: hasValue
+                        ? AppTextStyles.bodyMedium
+                        : AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                  ),
+                ),
+                Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          errorText ?? 'Search active clients',
+          style: AppTextStyles.labelSmall.copyWith(
+            color: errorText == null ? AppColors.textMuted : AppColors.error,
+          ),
+        ),
+      ],
+    );
   }
 }

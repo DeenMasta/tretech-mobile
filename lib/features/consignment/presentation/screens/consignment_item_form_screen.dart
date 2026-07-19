@@ -75,19 +75,6 @@ class _ConsignmentItemFormScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: ModuleAppBar(title: 'Add item', onBack: () => context.pop()),
-      bottomNavigationBar: detail.asData?.value.isDraft == true
-          ? SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppDimensions.spaceLg),
-                child: AppButton(
-                  label: 'Add item',
-                  isLoading: _saving,
-                  onPressed: _save,
-                ),
-              ),
-            )
-          : null,
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(e.toString())),
@@ -136,9 +123,13 @@ class _ConsignmentItemFormScreenState
               const SizedBox(height: 20),
               ConsignmentSection(
                 title: 'Item selection',
-                description: _isSet
-                    ? 'Select the instrument set to include in this consignment.'
-                    : 'Select an available lot from inventory to assign to this consignment.',
+                description: 'Select a lot or instrument set to add.',
+                trailing: AppButton(
+                  label: 'Add item',
+                  isLoading: _saving,
+                  isFullWidth: false,
+                  onPressed: _save,
+                ),
                 child: ContentCard(
                   child: Column(
                     children: [
@@ -266,7 +257,7 @@ class _ConsignmentItemFormScreenState
                   ),
                 ),
               ),
-              const SizedBox(height: 96),
+              const SizedBox(height: AppDimensions.spaceLg),
             ],
           );
         },

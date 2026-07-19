@@ -61,8 +61,14 @@ abstract final class ApiEndpoints {
   static String printJobMarkFailed(int id) => '$printJobs/$id/mark-failed';
   static const String printJobReprint = '$printJobs/reprint';
 
-  // ── Returns ───────────────────────────────────────────────────
+  // ── Returns ───────────────────────────────────────────────────────────────
   static const String returnSessions = '$_base/return-sessions';
+  static String returnSessionById(int id) => '$returnSessions/$id';
+  static String returnSessionScan(int id) => '$returnSessions/$id/scan';
+  static String returnSessionItem(int sessionId, int itemId) =>
+      '$returnSessions/$sessionId/items/$itemId';
+  static String returnSessionComplete(int id) => '$returnSessions/$id/complete';
+  static String returnSessionReopen(int id) => '$returnSessions/$id/reopen';
 
   // ── Consignments ──────────────────────────────────────────────
   static const String consignments = '$_base/consignments';
