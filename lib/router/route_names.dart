@@ -59,6 +59,8 @@ abstract final class RouteNames {
   static const String inventoryLedger = '/inventory/ledger';
   static const String inventoryProductLots = '/inventory/product/:id';
   static String inventoryProductLotsPath(int id) => '/inventory/product/$id';
+  static const String inventorySetLots = '/inventory/set/:id';
+  static String inventorySetLotsPath(int id) => '/inventory/set/$id';
   static const String inventoryMovements = '/inventory/:id/movements';
   static String inventoryMovementsPath(int id) => '/inventory/$id/movements';
   static const String profile = '/profile';

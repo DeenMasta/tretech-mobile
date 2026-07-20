@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,8 +11,8 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
-import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
+import '../../../../shared/widgets/scan_input_field.dart';
 import '../../../stock_in/presentation/widgets/barcode_scanner_sheet.dart';
 import '../providers/inventory_providers.dart';
 import '../widgets/inventory_unit_tile.dart';
@@ -25,23 +29,99 @@ class _InventoryLookupScreenState extends ConsumerState<InventoryLookupScreen> {
   late final TextEditingController _queryCtl;
   String _mode = 'lot';
   String _submitted = '';
+  bool _isScanning = false;
+  Timer? _debounce;
+
+  static const EventChannel _scannerChannel = EventChannel(
+    'com.tretech/scanner',
+  );
+  StreamSubscription<dynamic>? _scannerSub;
 
   @override
   void initState() {
     super.initState();
     _queryCtl = TextEditingController();
+    _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
+      if (!mounted) return;
+      final val = data.toString();
+      _queryCtl.text = val;
+      if (!_isScanning) setState(() => _isScanning = true);
+      _submit();
+    });
   }
 
   @override
   void dispose() {
     _queryCtl.dispose();
+    _debounce?.cancel();
+    _scannerSub?.cancel();
     super.dispose();
   }
 
   void _submit() {
     setState(() {
-      _submitted = _queryCtl.text.trim();
+      _isScanning = false;
+      final rawQuery = _queryCtl.text.trim();
+      _submitted = _mode == 'lot'
+          ? _lotNumberFromQrPayload(rawQuery)
+          : _refNumberFromQrPayload(rawQuery);
+      if (_queryCtl.text.trim() != _submitted) {
+        _queryCtl.text = _submitted;
+      }
     });
+  }
+
+  String _refNumberFromQrPayload(String rawValue) {
+    final value = rawValue.trim();
+    if (value.isEmpty) return value;
+
+    try {
+      final json = jsonDecode(value);
+      if (json is Map<String, dynamic>) {
+        final ref = json['ref_num']?.toString().trim() ?? json['reference']?.toString().trim();
+        if (ref?.isNotEmpty == true) return ref!;
+      }
+    } catch (_) {}
+
+    final match = RegExp(
+      r'(?:^|;)REF[=:]([^;]+)',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (match?.group(1)?.trim().isNotEmpty == true) {
+      return match!.group(1)!.trim();
+    }
+
+    return value;
+  }
+
+  String _lotNumberFromQrPayload(String rawValue) {
+    final value = rawValue.trim();
+    if (value.isEmpty) return value;
+
+    try {
+      final json = jsonDecode(value);
+      if (json is Map<String, dynamic>) {
+        final lot = json['lot_number']?.toString().trim();
+        if (lot?.isNotEmpty == true) return lot!;
+      }
+    } catch (_) {}
+
+    final match = RegExp(
+      r'(?:^|;)LOT[=:]([^;]+)',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (match?.group(1)?.trim().isNotEmpty == true) {
+      return match!.group(1)!.trim();
+    }
+
+    var parsed = value.split(';').first.trim();
+    if (parsed.contains('MFG=')) {
+      parsed = parsed.split('MFG=').first.trim();
+    }
+    if (parsed.contains('EXP=')) {
+      parsed = parsed.split('EXP=').first.trim();
+    }
+    return parsed;
   }
 
   Future<void> _scan() async {
@@ -80,16 +160,40 @@ class _InventoryLookupScreenState extends ConsumerState<InventoryLookupScreen> {
             ),
             child: Column(
               children: [
-                AppTextField(
+                ScanInputField(
                   controller: _queryCtl,
+                  label: 'Search',
                   hint: _mode == 'lot'
-                      ? 'Enter lot number'
-                      : 'Enter product reference number',
-                  textInputAction: TextInputAction.search,
-                  prefixIcon: Icons.search_rounded,
-                  suffixIcon: Icons.qr_code_scanner_rounded,
-                  onSuffixIconTap: _scan,
-                  onSubmitted: (_) => _submit(),
+                      ? 'Scan or enter lot number'
+                      : 'Scan or enter product ref',
+                  onScan: _scan,
+                  isLoading: _isScanning,
+                  onSubmitted: (_) {
+                    _debounce?.cancel();
+                    _submit();
+                  },
+                  onChanged: (val) {
+                    if (val.contains('=') ||
+                        val.contains(';') ||
+                        val.contains('{')) {
+                      if (!_isScanning) {
+                        setState(() => _isScanning = true);
+                      }
+                    }
+                    _debounce?.cancel();
+                    _debounce = Timer(
+                      const Duration(milliseconds: 150),
+                      () {
+                        if (_queryCtl.text.trim().isNotEmpty) {
+                          _submit();
+                        } else {
+                          if (mounted) {
+                            setState(() => _isScanning = false);
+                          }
+                        }
+                      },
+                    );
+                  },
                 ),
                 const SizedBox(height: AppDimensions.spaceSm),
                 Row(
@@ -154,15 +258,27 @@ class _InventoryLookupScreenState extends ConsumerState<InventoryLookupScreen> {
     return asyncData.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => AppErrorWidget(message: e.toString()),
-      data: (lot) => ListView(
-        padding: const EdgeInsets.all(AppDimensions.spaceLg),
-        children: [
-          InventoryUnitTile(
-            unit: lot,
-            onTap: () => context.push(RouteNames.inventoryDetailPath(lot.id)),
-          ),
-        ],
-      ),
+      data: (lot) {
+        if (lot == null) {
+          return Center(
+            child: Text(
+              'No lot found matching this number.',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(AppDimensions.spaceLg),
+          children: [
+            InventoryUnitTile(
+              unit: lot,
+              onTap: () => context.push(RouteNames.inventoryDetailPath(lot.id)),
+            ),
+          ],
+        );
+      },
     );
   }
 

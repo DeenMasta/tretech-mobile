@@ -7,6 +7,7 @@ class InventoryProductAvailabilityModel {
     this.category,
     this.uom,
     this.availableLotsCount,
+    this.totalQuantityAvailable,
   });
 
   factory InventoryProductAvailabilityModel.fromJson(
@@ -20,6 +21,7 @@ class InventoryProductAvailabilityModel {
       category: json['category'] as String?,
       uom: json['uom'] as String?,
       availableLotsCount: (json['available_lots_count'] as num?)?.toInt(),
+      totalQuantityAvailable: (json['total_quantity_available'] as num?)?.toInt(),
     );
   }
 
@@ -30,4 +32,5 @@ class InventoryProductAvailabilityModel {
   final String? category;
   final String? uom;
   final int? availableLotsCount;
+  final int? totalQuantityAvailable;
 }

@@ -7,6 +7,7 @@ import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
@@ -38,9 +39,23 @@ class DisposalDetailScreen extends ConsumerWidget {
     final itemsAsync = ref.watch(disposalItemsProvider(disposalId));
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: ModuleAppBar(
-        title: 'Disposal',
-        onBack: () => context.go(RouteNames.disposal),
+      appBar: AppBar(
+        backgroundColor: AppColors.sidebarBg,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back to Disposals',
+          onPressed: () => context.go(RouteNames.disposal),
+        ),
+        title: Text('Disposal', style: AppTextStyles.titleMedium),
+        actions: [
+          if (disposalAsync.value?.isDraft == true && permissions.contains('disposals.create'))
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit disposal',
+              onPressed: () => context.push(RouteNames.disposalEditPath(disposalId)),
+            ),
+          const SizedBox(width: AppDimensions.spaceXs),
+        ],
       ),
       body: disposalAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -69,60 +84,6 @@ class DisposalDetailScreen extends ConsumerWidget {
                   DisposalStatusBadge(status: disposal.status),
                 ],
               ),
-              const SizedBox(height: AppDimensions.spaceMd),
-              if (canManageDraft)
-                Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.push(
-                              RouteNames.disposalEditPath(disposalId),
-                            ),
-                            icon: const Icon(Icons.edit_outlined),
-                            label: const Text('Edit'),
-                          ),
-                        ),
-                        const SizedBox(width: AppDimensions.spaceSm),
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => context.push(
-                              RouteNames.disposalItemAddPath(disposalId),
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppDimensions.buttonRadius,
-                                ),
-                              ),
-                            ),
-                            icon: const Icon(Icons.add_box_outlined),
-                            label: const Text('Add item'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (itemCount > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          top: AppDimensions.spaceSm,
-                        ),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: () => context.push(
-                              RouteNames.disposalCompletePath(disposalId),
-                            ),
-                            icon: const Icon(Icons.check_circle_outline),
-                            label: const Text('Complete'),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
               const SizedBox(height: AppDimensions.spaceMd),
               ContentCard(
                 child: Column(
@@ -165,8 +126,31 @@ class DisposalDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (canManageDraft && itemCount > 0) ...[
+                const SizedBox(height: AppDimensions.spaceMd),
+                _CompleteActionCard(
+                  itemCount: itemCount,
+                  onPressed: () => context.push(
+                    RouteNames.disposalCompletePath(disposalId),
+                  ),
+                ),
+              ],
               const SizedBox(height: AppDimensions.spaceLg),
-              SectionHeader(title: 'Disposal lots', count: itemCount),
+              SectionHeader(
+                title: 'Disposal lots',
+                count: itemCount,
+                trailing: canManageDraft
+                    ? AppButton(
+                        label: 'Add item',
+                        icon: Icons.add_rounded,
+                        size: AppButtonSize.sm,
+                        isFullWidth: false,
+                        onPressed: () => context.push(
+                          RouteNames.disposalItemAddPath(disposalId),
+                        ),
+                      )
+                    : null,
+              ),
               const SizedBox(height: AppDimensions.spaceSm),
               itemsAsync.when(
                 loading: () => const Padding(
@@ -192,12 +176,29 @@ class DisposalDetailScreen extends ConsumerWidget {
                                 padding: const EdgeInsets.only(
                                   bottom: AppDimensions.spaceSm,
                                 ),
-                                child: DisposalItemTile(
-                                  item: item,
-                                  onDelete: canManageDraft
-                                      ? () => _delete(context, ref, item.id)
-                                      : null,
-                                ),
+                                child: canManageDraft
+                                    ? Dismissible(
+                                        key: ValueKey(item.id),
+                                        direction: DismissDirection.endToStart,
+                                        confirmDismiss: (_) async {
+                                          _delete(context, ref, item.id);
+                                          return false;
+                                        },
+                                        background: Container(
+                                          alignment: Alignment.centerRight,
+                                          padding: const EdgeInsets.only(right: AppDimensions.spaceLg),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.errorContainer,
+                                            borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+                                          ),
+                                          child: Icon(
+                                            Icons.delete_outline_rounded,
+                                            color: AppColors.error,
+                                          ),
+                                        ),
+                                        child: DisposalItemTile(item: item),
+                                      )
+                                    : DisposalItemTile(item: item),
                               ),
                             )
                             .toList(),
@@ -241,5 +242,45 @@ class DisposalDetailScreen extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
+  }
+}
+
+class _CompleteActionCard extends StatelessWidget {
+  const _CompleteActionCard({
+    required this.itemCount,
+    required this.onPressed,
+  });
+
+  final int itemCount;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ContentCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ready to complete',
+            style: AppTextStyles.titleSmall.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spaceXs),
+          Text(
+            'Review $itemCount lot${itemCount == 1 ? '' : 's'} before completing the disposal.',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          AppButton(
+            label: 'Complete disposal',
+            icon: Icons.check_circle_outline_rounded,
+            onPressed: onPressed,
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -24,6 +24,7 @@ import '../features/inventory/presentation/screens/inventory_ledger_screen.dart'
 import '../features/inventory/presentation/screens/inventory_lookup_screen.dart';
 import '../features/inventory/presentation/screens/inventory_movements_screen.dart';
 import '../features/inventory/presentation/screens/inventory_product_lots_screen.dart';
+import '../features/inventory/presentation/screens/inventory_set_lots_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/returns/presentation/screens/returns_list_screen.dart';
 import '../features/returns/presentation/screens/create_return_session_screen.dart';
@@ -58,6 +59,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final sessionState = ref.read(authSessionProvider);
       final isAuthenticated = authState.isAuthenticated;
       final isInitial = authState.status == AuthStatus.initial;
+      final isLoading = authState.isLoading;
 
       final isOnSplash = state.matchedLocation == RouteNames.splash;
       final isOnLogin = state.matchedLocation == RouteNames.login;
@@ -74,6 +76,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (isInitial) {
         return isOnSplash ? null : RouteNames.splash;
+      }
+
+      if (isLoading && isOnSplash) {
+        return null;
       }
 
       if (!isAuthenticated) {
@@ -212,6 +218,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'inventoryProductLots',
         builder: (_, state) => InventoryProductLotsScreen(
           productId: int.parse(state.pathParameters['id'] ?? '0'),
+        ),
+      ),
+      GoRoute(
+        path: RouteNames.inventorySetLots,
+        name: 'inventorySetLots',
+        builder: (_, state) => InventorySetLotsScreen(
+          setId: int.parse(state.pathParameters['id'] ?? '0'),
         ),
       ),
       GoRoute(

@@ -7,6 +7,8 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../router/route_names.dart';
+import '../../../auth/data/models/auth_models.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -116,6 +118,7 @@ PRINT 1
   @override
   Widget build(BuildContext context) {
     final printer = ref.watch(settingsProvider);
+    final currentUser = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -136,6 +139,83 @@ PRINT 1
       body: ListView(
         padding: const EdgeInsets.all(AppDimensions.spaceLg),
         children: [
+          // ── Account Section ──
+          if (currentUser != null) ...[
+            const _SectionHeader(label: 'Account'),
+            const SizedBox(height: AppDimensions.spaceSm),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppDimensions.spaceLg),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: AppColors.primaryContainer,
+                          child: Text(
+                            currentUser.name.isNotEmpty
+                                ? currentUser.name.substring(0, 1).toUpperCase()
+                                : 'U',
+                            style: AppTextStyles.titleMedium.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppDimensions.spaceMd),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                currentUser.name,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                currentUser.email,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                                ),
+                                child: Text(
+                                  currentUser.mobileRoleLabel,
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppDimensions.spaceXl),
+          ],
+
           // ── Bluetooth Printer Section ──
           const _SectionHeader(label: 'Bluetooth Printer'),
           const SizedBox(height: AppDimensions.spaceSm),
@@ -223,65 +303,72 @@ PRINT 1
                 // Action buttons
                 Padding(
                   padding: const EdgeInsets.all(AppDimensions.spaceMd),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _loadingDevices ? null : _selectPrinter,
-                          icon: _loadingDevices
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                      if (printer.isConfigured) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _testPrint(printer.macAddress),
+                                icon: const Icon(Icons.print_rounded, size: 16),
+                                label: const Text('Test Print'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  side: BorderSide(
+                                    color: AppColors.primary.withValues(alpha: 0.4),
                                   ),
-                                )
-                              : const Icon(
-                                  Icons.bluetooth_searching_rounded,
-                                  size: 16,
                                 ),
-                          label: Text(
-                            printer.isConfigured
-                                ? 'Change Printer'
-                                : 'Select Printer',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: BorderSide(color: AppColors.border),
-                          ),
+                              ),
+                            ),
+                            const SizedBox(width: AppDimensions.spaceSm),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  ref.read(settingsProvider.notifier).clearPrinter();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Printer disconnected.')),
+                                  );
+                                },
+                                icon: const Icon(Icons.link_off_rounded, size: 16),
+                                label: const Text('Disconnect'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.error,
+                                  side: BorderSide(
+                                    color: AppColors.error.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppDimensions.spaceSm),
+                      ],
+                      OutlinedButton.icon(
+                        onPressed: _loadingDevices ? null : _selectPrinter,
+                        icon: _loadingDevices
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.bluetooth_searching_rounded,
+                                size: 16,
+                              ),
+                        label: Text(
+                          printer.isConfigured
+                              ? 'Change Printer'
+                              : 'Select Printer',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(color: AppColors.border),
                         ),
                       ),
-                      if (printer.isConfigured) ...[
-                        const SizedBox(width: AppDimensions.spaceSm),
-                        OutlinedButton.icon(
-                          onPressed: () => _testPrint(printer.macAddress),
-                          icon: const Icon(Icons.print_rounded, size: 16),
-                          label: const Text('Test'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: BorderSide(
-                              color: AppColors.primary.withValues(alpha: 0.4),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppDimensions.spaceSm),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            ref.read(settingsProvider.notifier).clearPrinter();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Printer removed.')),
-                            );
-                          },
-                          icon: const Icon(Icons.link_off_rounded, size: 16),
-                          label: const Text('Remove'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.error,
-                            side: BorderSide(
-                              color: AppColors.error.withValues(alpha: 0.4),
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -313,6 +400,27 @@ PRINT 1
               ],
             ),
           ),
+          const SizedBox(height: AppDimensions.spaceXl),
+
+          // ── Logout Section ──
+          ElevatedButton.icon(
+            onPressed: () {
+              ref.read(authProvider.notifier).logout();
+              context.go(RouteNames.login);
+            },
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Log Out'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorContainer,
+              foregroundColor: AppColors.error,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: AppDimensions.spaceLg),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+              ),
+            ),
+          ),
+          
           const SizedBox(height: AppDimensions.space4xl),
         ],
       ),

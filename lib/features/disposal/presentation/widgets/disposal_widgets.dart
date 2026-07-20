@@ -64,9 +64,8 @@ class DisposalListTile extends StatelessWidget {
 }
 
 class DisposalItemTile extends StatelessWidget {
-  const DisposalItemTile({super.key, required this.item, this.onDelete});
+  const DisposalItemTile({super.key, required this.item});
   final DisposalItemModel item;
-  final VoidCallback? onDelete;
   @override
   Widget build(BuildContext context) => ContentCard(
     child: Column(
@@ -89,13 +88,6 @@ class DisposalItemTile extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            if (onDelete != null)
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                color: AppColors.error,
-                tooltip: 'Remove item',
-              ),
           ],
         ),
         Text(item.lot?.productName ?? '-', style: AppTextStyles.bodySmall),

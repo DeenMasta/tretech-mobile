@@ -9,14 +9,17 @@ class ModuleAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.onBack,
     this.actions = const [],
+    this.bottom,
   });
 
   final String title;
   final VoidCallback? onBack;
   final List<Widget> actions;
+  final PreferredSizeWidget? bottom;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+      kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
 
   @override
   Widget build(BuildContext context) => AppBar(
@@ -31,5 +34,6 @@ class ModuleAppBar extends StatelessWidget implements PreferredSizeWidget {
       ...actions,
       const SizedBox(width: AppDimensions.spaceXs),
     ],
+    bottom: bottom,
   );
 }

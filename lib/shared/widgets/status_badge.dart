@@ -12,7 +12,7 @@ class StatusBadge extends StatelessWidget {
     required this.label,
     this.status = BadgeStatus.neutral,
     this.icon,
-    this.dot = true,
+    this.dot = false,
   });
 
   final String label;

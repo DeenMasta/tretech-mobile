@@ -1,3 +1,5 @@
+import 'instrument_set_item_model.dart';
+
 class InventorySetAvailabilityModel {
   const InventorySetAvailabilityModel({
     required this.id,
@@ -6,6 +8,7 @@ class InventorySetAvailabilityModel {
     this.description,
     this.itemsCount,
     this.availableSetsCount,
+    this.items,
   });
 
   factory InventorySetAvailabilityModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +19,12 @@ class InventorySetAvailabilityModel {
       description: json['description'] as String?,
       itemsCount: (json['items_count'] as num?)?.toInt(),
       availableSetsCount: (json['available_sets_count'] as num?)?.toInt(),
+      items: json['items'] == null
+          ? null
+          : (json['items'] as List<dynamic>)
+              .whereType<Map<String, dynamic>>()
+              .map(InstrumentSetItemModel.fromJson)
+              .toList(),
     );
   }
 
@@ -25,4 +34,5 @@ class InventorySetAvailabilityModel {
   final String? description;
   final int? itemsCount;
   final int? availableSetsCount;
+  final List<InstrumentSetItemModel>? items;
 }

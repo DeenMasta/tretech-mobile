@@ -6,6 +6,7 @@ import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
@@ -116,10 +117,11 @@ class _DisposalCompleteScreenState
                 ),
               ),
               const SizedBox(height: AppDimensions.spaceLg),
-              FilledButton.icon(
+              AppButton(
                 onPressed: _saving ? null : () => _confirm(disposal.disposalNo),
-                icon: const Icon(Icons.check_circle_outline),
-                label: Text(_saving ? 'Completing...' : 'Complete disposal'),
+                icon: Icons.check_circle_outline_rounded,
+                isLoading: _saving,
+                label: 'Complete disposal',
               ),
             ],
           );

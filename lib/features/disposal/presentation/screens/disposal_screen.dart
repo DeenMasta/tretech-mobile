@@ -7,6 +7,7 @@ import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
@@ -138,19 +139,17 @@ class _DisposalScreenState extends ConsumerState<DisposalScreen> {
                           AppDimensions.spaceLg,
                           96,
                         ),
-                        itemCount: page.items.length + 1,
+                        itemCount: page.items.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: AppDimensions.spaceSm),
-                        itemBuilder: (_, index) => index == page.items.length
-                            ? _pagination(page.currentPage, page.lastPage)
-                            : DisposalListTile(
-                                disposal: page.items[index],
-                                onTap: () => context.push(
-                                  RouteNames.disposalDetailPath(
-                                    page.items[index].id,
-                                  ),
-                                ),
-                              ),
+                        itemBuilder: (_, index) => DisposalListTile(
+                          disposal: page.items[index],
+                          onTap: () => context.push(
+                            RouteNames.disposalDetailPath(
+                              page.items[index].id,
+                            ),
+                          ),
+                        ),
                       ),
               ),
             ),
@@ -160,115 +159,356 @@ class _DisposalScreenState extends ConsumerState<DisposalScreen> {
     );
   }
 
-  Widget _toolbar() => Container(
-    color: AppColors.sidebarBg,
-    padding: const EdgeInsets.fromLTRB(
-      AppDimensions.spaceLg,
-      AppDimensions.spaceMd,
-      AppDimensions.spaceLg,
-      AppDimensions.spaceSm,
-    ),
-    child: Column(
-      children: [
-        AppTextField(
-          controller: _search,
-          hint: 'Search disposal number',
-          prefixIcon: Icons.search_rounded,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) =>
-              _apply(_query.copyWith(search: _search.text.trim(), page: 1)),
+  Future<void> _openFilters() async {
+    final result = await showModalBottomSheet<DisposalListQuery>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.radiusXl),
         ),
-        const SizedBox(height: AppDimensions.spaceSm),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
+      ),
+      builder: (_) => _DisposalFilterSheet(initialQuery: _query),
+    );
+    if (result == null) return;
+    _apply(result);
+  }
+
+  Widget _toolbar() {
+    final hasExtraFilters = _query.fromDate != null || _query.toDate != null;
+    return Container(
+      color: AppColors.sidebarBg,
+      padding: const EdgeInsets.fromLTRB(
+        AppDimensions.spaceLg,
+        AppDimensions.spaceMd,
+        AppDimensions.spaceLg,
+        AppDimensions.spaceSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              _chip('All', 'all'),
+              Expanded(
+                child: AppTextField(
+                  controller: _search,
+                  hint: 'Search disposal number',
+                  prefixIcon: Icons.search_rounded,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) =>
+                      _apply(_query.copyWith(search: _search.text.trim(), page: 1)),
+                ),
+              ),
               const SizedBox(width: AppDimensions.spaceSm),
-              _chip('Draft', 'draft'),
-              const SizedBox(width: AppDimensions.spaceSm),
-              _chip('Completed', 'completed'),
+              InkWell(
+                onTap: _openFilters,
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: hasExtraFilters
+                        ? AppColors.primaryContainer
+                        : AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                    border: Border.all(
+                      color: hasExtraFilters
+                          ? AppColors.primary.withValues(alpha: 0.35)
+                          : AppColors.border,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.tune_rounded,
+                    color: hasExtraFilters
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.spaceMd),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _statusChip('All', 'all', _query.status ?? 'all'),
+                const SizedBox(width: AppDimensions.spaceSm),
+                _statusChip('Draft', 'draft', _query.status ?? 'all'),
+                const SizedBox(width: AppDimensions.spaceSm),
+                _statusChip('Completed', 'completed', _query.status ?? 'all'),
+              ],
+            ),
+          ),
+          if (hasExtraFilters) ...[
+            const SizedBox(height: AppDimensions.spaceMd),
+            Wrap(
+              spacing: AppDimensions.spaceSm,
+              runSpacing: AppDimensions.spaceSm,
+              children: [
+                if (_query.fromDate != null)
+                  _filterPill('From ${_query.fromDate}'),
+                if (_query.toDate != null)
+                  _filterPill('To ${_query.toDate}'),
+                InkWell(
+                  onTap: () => _apply(_query.copyWith(clearFrom: true, clearTo: true, page: 1)),
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.spaceSm,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      'Clear filters',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  Widget _statusChip(String label, String value, String selected) {
+    final isActive = selected == value;
+    return InkWell(
+      onTap: () => _apply(_query.copyWith(status: value, page: 1)),
+      borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.spaceMd,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primaryContainer
+              : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+          border: Border.all(
+            color: isActive
+                ? AppColors.primary.withValues(alpha: 0.4)
+                : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: isActive ? AppColors.primary : AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _filterPill(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.spaceMd,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusFull),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(label, style: AppTextStyles.labelSmall),
+    );
+  }
+
+}
+
+class _DisposalFilterSheet extends StatefulWidget {
+  const _DisposalFilterSheet({required this.initialQuery});
+  final DisposalListQuery initialQuery;
+
+  @override
+  State<_DisposalFilterSheet> createState() => _DisposalFilterSheetState();
+}
+
+class _DisposalFilterSheetState extends State<_DisposalFilterSheet> {
+  DateTime? _fromDate;
+  DateTime? _toDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _fromDate = widget.initialQuery.fromDate != null
+        ? DateTime.tryParse(widget.initialQuery.fromDate!)
+        : null;
+    _toDate = widget.initialQuery.toDate != null
+        ? DateTime.tryParse(widget.initialQuery.toDate!)
+        : null;
+  }
+
+  Future<void> _pickDate({required bool from}) async {
+    final initialDate = from
+        ? (_fromDate ?? DateTime.now())
+        : (_toDate ?? _fromDate ?? DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365 * 5)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (from) {
+        _fromDate = picked;
+      } else {
+        _toDate = picked;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimensions.spaceLg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              Text('More filters', style: AppTextStyles.titleMedium),
+              const SizedBox(height: AppDimensions.spaceLg),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FilterPicker(
+                      label: 'From date',
+                      value: _fromDate == null
+                          ? null
+                          : DateFormatter.toDisplay(_fromDate!),
+                      hint: 'Select date',
+                      icon: Icons.event_outlined,
+                      onTap: () => _pickDate(from: true),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimensions.spaceSm),
+                  Expanded(
+                    child: _FilterPicker(
+                      label: 'To date',
+                      value: _toDate == null
+                          ? null
+                          : DateFormatter.toDisplay(_toDate!),
+                      hint: 'Select date',
+                      icon: Icons.event_outlined,
+                      onTap: () => _pickDate(from: false),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppDimensions.spaceLg),
+              AppButton(
+                label: 'Apply filters',
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    widget.initialQuery.copyWith(
+                      fromDate: _fromDate != null ? DateFormatter.toApi(_fromDate!) : null,
+                      toDate: _toDate != null ? DateFormatter.toApi(_toDate!) : null,
+                      clearFrom: _fromDate == null,
+                      clearTo: _toDate == null,
+                      page: 1,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: AppDimensions.spaceSm),
+              AppButton(
+                label: 'Reset',
+                variant: AppButtonVariant.ghost,
+                onPressed: () => Navigator.pop(
+                  context,
+                  widget.initialQuery.copyWith(
+                    clearFrom: true,
+                    clearTo: true,
+                    page: 1,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: AppDimensions.spaceSm),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _pickDate(true),
-                icon: const Icon(Icons.event_outlined),
-                label: Text(_query.fromDate ?? 'From date'),
-              ),
-            ),
-            const SizedBox(width: AppDimensions.spaceSm),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _pickDate(false),
-                icon: const Icon(Icons.event_available_outlined),
-                label: Text(_query.toDate ?? 'To date'),
-              ),
-            ),
-          ],
+      ),
+    );
+  }
+}
+
+class _FilterPicker extends StatelessWidget {
+  const _FilterPicker({
+    required this.label,
+    required this.hint,
+    required this.icon,
+    required this.onTap,
+    this.value,
+  });
+
+  final String label;
+  final String hint;
+  final String? value;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = value != null && value!.trim().isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        if (_query.fromDate != null || _query.toDate != null)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => _apply(
-                _query.copyWith(clearFrom: true, clearTo: true, page: 1),
-              ),
-              child: const Text('Clear dates'),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, size: 18),
+              suffixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
+              filled: true,
+              fillColor: AppColors.surfaceElevated,
+            ),
+            child: Text(
+              hasValue ? value! : hint,
+              style: hasValue
+                  ? AppTextStyles.bodyMedium
+                  : AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textMuted,
+                    ),
             ),
           ),
+        ),
       ],
-    ),
-  );
-  Widget _chip(String label, String value) => ChoiceChip(
-    label: Text(label),
-    selected: _query.status == value,
-    onSelected: (_) => _apply(_query.copyWith(status: value, page: 1)),
-  );
-  Future<void> _pickDate(bool from) async {
-    final value = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
     );
-    if (value != null) {
-      _apply(
-        _query.copyWith(
-          fromDate: from ? DateFormatter.toApi(value) : null,
-          toDate: from ? null : DateFormatter.toApi(value),
-          page: 1,
-        ),
-      );
-    }
   }
-
-  Widget _pagination(int current, int last) => Row(
-    children: [
-      Expanded(
-        child: OutlinedButton(
-          onPressed: current <= 1
-              ? null
-              : () => _apply(_query.copyWith(page: current - 1)),
-          child: const Text('Previous'),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppDimensions.spaceMd),
-        child: Text('Page $current / $last'),
-      ),
-      Expanded(
-        child: OutlinedButton(
-          onPressed: current >= last
-              ? null
-              : () => _apply(_query.copyWith(page: current + 1)),
-          child: const Text('Next'),
-        ),
-      ),
-    ],
-  );
 }

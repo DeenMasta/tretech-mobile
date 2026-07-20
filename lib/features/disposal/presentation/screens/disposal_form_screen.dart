@@ -8,6 +8,7 @@ import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/content_card.dart';
@@ -90,16 +91,11 @@ class _DisposalFormScreenState extends ConsumerState<DisposalFormScreen> {
             color: AppColors.sidebarBg,
             border: Border(top: BorderSide(color: AppColors.border)),
           ),
-          child: FilledButton.icon(
+          child: AppButton(
             onPressed: _saving ? null : () => _submit(user?.id),
-            icon: const Icon(Icons.save_outlined),
-            label: Text(
-              _saving
-                  ? 'Saving...'
-                  : isEdit
-                  ? 'Save changes'
-                  : 'Create disposal',
-            ),
+            isLoading: _saving,
+            icon: Icons.save_outlined,
+            label: isEdit ? 'Save changes' : 'Create disposal',
           ),
         ),
       ),

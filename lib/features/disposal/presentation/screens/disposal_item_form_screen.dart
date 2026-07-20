@@ -10,6 +10,7 @@ import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
@@ -125,10 +126,27 @@ class _DisposalItemFormScreenState
             color: AppColors.sidebarBg,
             border: Border(top: BorderSide(color: AppColors.border)),
           ),
-          child: FilledButton.icon(
-            onPressed: _saving ? null : _submit,
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            label: Text(_saving ? 'Adding...' : 'Add item'),
+          child: Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: 'Save & next',
+                  variant: AppButtonVariant.secondary,
+                  icon: Icons.add_rounded,
+                  isLoading: _saving,
+                  onPressed: _saving ? null : _submitAndAddAnother,
+                ),
+              ),
+              const SizedBox(width: AppDimensions.spaceMd),
+              Expanded(
+                child: AppButton(
+                  label: 'Add item',
+                  icon: Icons.add_circle_outline_rounded,
+                  isLoading: _saving,
+                  onPressed: _saving ? null : _submit,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -494,6 +512,67 @@ class _DisposalItemFormScreenState
       ref.invalidate(disposalDetailProvider(widget.disposalId));
       ref.invalidate(disposalListProvider);
       if (mounted) context.go(RouteNames.disposalDetailPath(widget.disposalId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _submitAndAddAnother() async {
+    final quantity = int.tryParse(_qtyCtl.text.trim());
+    final max = _lot?.quantityAvailable ?? 0;
+    final message = _lot == null
+        ? 'Scan or choose a lot.'
+        : _terminal(_lot!.status)
+        ? 'This lot cannot be disposed.'
+        : quantity == null || quantity < 1
+        ? 'Quantity must be at least 1.'
+        : quantity > max
+        ? 'Quantity cannot exceed available stock ($max).'
+        : _reasonCtl.text.trim().isEmpty
+        ? 'Reason is required.'
+        : _reasonCtl.text.trim().length > 500
+        ? 'Reason must be 500 characters or less.'
+        : _remarksCtl.text.trim().length > 1000
+        ? 'Remarks must be 1,000 characters or less.'
+        : null;
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(disposalRepositoryProvider)
+          .addItem(
+            widget.disposalId,
+            lotId: _lot!.id,
+            quantity: quantity!,
+            category: _category,
+            reasonText: _reasonCtl.text,
+            remarks: _remarksCtl.text,
+          );
+      ref.invalidate(disposalItemsProvider(widget.disposalId));
+      ref.invalidate(disposalDetailProvider(widget.disposalId));
+      ref.invalidate(disposalListProvider);
+      if (mounted) {
+        setState(() {
+          _lotCtl.clear();
+          _qtyCtl.text = '1';
+          _lot = null;
+          _isScanning = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item added. Ready for next lot.')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

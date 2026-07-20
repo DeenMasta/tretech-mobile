@@ -76,6 +76,7 @@ class InventoryRepository {
   Future<PaginatedResult<InventoryProductAvailabilityModel>> listProducts({
     String? search,
     String? status,
+    String? sort,
     String? fromDate,
     String? toDate,
     int page = 1,
@@ -89,6 +90,7 @@ class InventoryRepository {
           'per_page': perPage,
           'search': (search ?? '').trim().isEmpty ? null : search,
           'status': (status ?? '').isEmpty || status == 'all' ? null : status,
+          'sort': (sort ?? '').trim().isEmpty ? null : sort,
           'from_date': fromDate,
           'to_date': toDate,
           'include_availability': true,
@@ -125,6 +127,32 @@ class InventoryRepository {
       return _parsePage(
         response.data ?? const {},
         InventorySetAvailabilityModel.fromJson,
+      );
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<InventorySetAvailabilityModel> getInstrumentSet(int id) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.masterDataInstrumentSetById(id),
+      );
+      return InventorySetAvailabilityModel.fromJson(
+        _unwrapData(response.data ?? const {}),
+      );
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<InventoryProductAvailabilityModel> getProduct(int id) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiEndpoints.masterDataProductById(id),
+      );
+      return InventoryProductAvailabilityModel.fromJson(
+        _unwrapData(response.data ?? const {}),
       );
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());

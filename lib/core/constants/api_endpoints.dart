@@ -47,8 +47,11 @@ abstract final class ApiEndpoints {
   // ── Master Data (used by stock-in flow) ───────────────────────
   static const String masterDataSuppliers = '$_base/master-data/suppliers';
   static const String masterDataProducts = '$_base/master-data/products';
+  static String masterDataProductById(int id) => '$masterDataProducts/$id';
   static const String masterDataInstrumentSets =
       '$_base/master-data/instrument-sets';
+  static String masterDataInstrumentSetById(int id) =>
+      '$masterDataInstrumentSets/$id';
   static const String masterDataUsers = '$_base/master-data/users';
   static const String masterDataClients = '$_base/master-data/clients';
 

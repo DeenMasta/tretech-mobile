@@ -289,6 +289,7 @@ final inventoryProductsProvider = FutureProvider.autoDispose
           .listProducts(
             search: query.search,
             status: query.status,
+            sort: 'available_qty_desc',
             fromDate: query.fromDate,
             toDate: query.toDate,
             page: query.page,
@@ -336,14 +337,46 @@ final inventoryUnitDetailProvider = FutureProvider.autoDispose
       return ref.watch(inventoryRepositoryProvider).getInventoryUnit(lotId);
     });
 
+final inventoryInstrumentSetProvider = FutureProvider.autoDispose
+    .family<InventorySetAvailabilityModel, int>((ref, setId) async {
+      return ref.watch(inventoryRepositoryProvider).getInstrumentSet(setId);
+    });
+
+final inventoryProductProvider = FutureProvider.autoDispose
+    .family<InventoryProductAvailabilityModel, int>((ref, productId) async {
+      return ref.watch(inventoryRepositoryProvider).getProduct(productId);
+    });
+
 final inventoryLookupByLotProvider = FutureProvider.autoDispose
-    .family<InventoryUnitModel, String>((ref, lotNumber) async {
-      return ref.watch(inventoryRepositoryProvider).lookupByLot(lotNumber);
+    .family<InventoryUnitModel?, String>((ref, lotNumber) async {
+      try {
+        return await ref
+            .watch(inventoryRepositoryProvider)
+            .lookupByLot(lotNumber)
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        final err = e.toString().toLowerCase();
+        if (err.contains('404') || err.contains('not found') || err.contains('timeout')) {
+          return null;
+        }
+        rethrow;
+      }
     });
 
 final inventoryLookupByRefProvider = FutureProvider.autoDispose
     .family<List<InventoryUnitModel>, String>((ref, refNum) async {
-      return ref.watch(inventoryRepositoryProvider).lookupByRef(refNum);
+      try {
+        return await ref
+            .watch(inventoryRepositoryProvider)
+            .lookupByRef(refNum)
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        final err = e.toString().toLowerCase();
+        if (err.contains('404') || err.contains('not found') || err.contains('timeout')) {
+          return [];
+        }
+        rethrow;
+      }
     });
 
 final inventoryMovementsProvider = FutureProvider.autoDispose

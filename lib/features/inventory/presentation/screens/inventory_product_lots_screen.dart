@@ -8,6 +8,7 @@ import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
+import '../../data/models/inventory_product_availability_model.dart';
 import '../providers/inventory_providers.dart';
 import '../widgets/inventory_unit_tile.dart';
 
@@ -37,6 +38,7 @@ class _InventoryProductLotsScreenState
   @override
   Widget build(BuildContext context) {
     final lotsAsync = ref.watch(inventoryUnitsProvider(_query));
+    final productAsync = ref.watch(inventoryProductProvider(widget.productId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -51,19 +53,38 @@ class _InventoryProductLotsScreenState
           onRetry: () => ref.invalidate(inventoryUnitsProvider(_query)),
         ),
         data: (page) {
+          final productName = productAsync.value?.productName ?? 'Product';
+          final productRef = productAsync.value?.refNum ?? '-';
+
           if (page.items.isEmpty) {
-            return Center(
-              child: Text(
-                'No lots available for this product.',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
+            return ListView(
+              padding: const EdgeInsets.all(AppDimensions.spaceLg),
+              children: [
+                Text(
+                  productName,
+                  style: AppTextStyles.titleLarge.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
+                const SizedBox(height: AppDimensions.spaceXs),
+                Text(
+                  'Reference: $productRef',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceXl),
+                Center(
+                  child: Text(
+                    'No lots available for this product.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             );
           }
-          final productName =
-              page.items.first.product?.productName ?? 'Product';
-          final productRef = page.items.first.product?.refNum ?? '-';
 
           return ListView.separated(
             padding: const EdgeInsets.all(AppDimensions.spaceLg),

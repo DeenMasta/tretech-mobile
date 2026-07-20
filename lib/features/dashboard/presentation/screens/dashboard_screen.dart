@@ -99,11 +99,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _navItems[_selectedIndex].label,
         style: AppTextStyles.titleMedium,
       ),
-      actions: [
-        _buildNotificationBell(),
-        _buildAvatarButton(userName),
-        const SizedBox(width: AppDimensions.spaceMd),
-      ],
     );
   }
 
@@ -152,84 +147,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(
         AppDimensions.spaceLg,
-        AppDimensions.space3xl,
+        AppDimensions.space3xl + AppDimensions.spaceSm,
         AppDimensions.spaceLg,
         AppDimensions.spaceLg,
       ),
-      child: Row(
-        children: [
-          // Logo
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.primaryDark],
-              ),
-
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                'T',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.onPrimary,
-                ),
-              ),
-            ),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.border,
+            width: 1,
           ),
-          if (_sidebarExpanded) ...[
-            const SizedBox(width: AppDimensions.spaceMd),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'TRETECH',
-                    style: AppTextStyles.titleSmall.copyWith(
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'Warehouse Manager',
-                    style: AppTextStyles.labelSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            // Collapse toggle
-            GestureDetector(
-              onTap: () => setState(() => _sidebarExpanded = false),
-              child: Icon(
-                Icons.chevron_left_rounded,
-                size: 20,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ] else ...[
-            const Spacer(),
-            GestureDetector(
-              onTap: () => setState(() => _sidebarExpanded = true),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
-        ],
+        ),
+      ),
+      child: Image.asset(
+        'assets/logo/dark_bg_banner.png',
+        fit: BoxFit.contain,
+        height: 48,
+        alignment: _sidebarExpanded ? Alignment.centerLeft : Alignment.center,
       ),
     );
   }
@@ -237,13 +172,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildNavItem(_NavItem item, int index) {
     final isSelected = _selectedIndex == index;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.sidebarItemActive : Colors.transparent,
+        gradient: isSelected
+            ? LinearGradient(
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.15),
+                  AppColors.primary.withValues(alpha: 0.05),
+                ],
+              )
+            : null,
         borderRadius: BorderRadius.circular(AppDimensions.sidebarItemRadius),
         border: isSelected
-            ? Border.all(color: AppColors.primary.withValues(alpha: 0.2))
-            : null,
+            ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
+            : Border.all(color: Colors.transparent),
       ),
       child: InkWell(
         onTap: () {
@@ -252,12 +194,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         },
         borderRadius: BorderRadius.circular(AppDimensions.sidebarItemRadius),
         hoverColor: AppColors.sidebarItemHover,
+        splashColor: AppColors.primary.withValues(alpha: 0.1),
+        highlightColor: AppColors.primary.withValues(alpha: 0.05),
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: _sidebarExpanded
                 ? AppDimensions.spaceMd
                 : AppDimensions.spaceSm,
-            vertical: 10,
+            vertical: 12,
           ),
           child: Row(
             mainAxisAlignment: _sidebarExpanded
@@ -279,18 +223,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ? AppColors.primary
                           : AppColors.textSecondary,
                       fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                   ),
                 ),
                 if (isSelected)
                   Container(
-                    width: 4,
-                    height: 4,
+                    width: 6,
+                    height: 6,
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -303,29 +253,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildSidebarFooter(String userName) {
     return Container(
-      padding: const EdgeInsets.all(AppDimensions.spaceMd),
+      padding: const EdgeInsets.all(AppDimensions.spaceLg),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.divider)),
+        color: AppColors.surfaceElevated.withValues(alpha: 0.3),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
-
       child: InkWell(
         onTap: () async {
           await ref.read(authProvider.notifier).logout();
           if (mounted) context.go(RouteNames.login);
         },
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-        child: Padding(
-          padding: const EdgeInsets.all(AppDimensions.spaceSm),
+        hoverColor: AppColors.errorContainer.withValues(alpha: 0.5),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spaceSm,
+            vertical: AppDimensions.spaceSm,
+          ),
           child: Row(
+            mainAxisAlignment: _sidebarExpanded
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
             children: [
               CircleAvatar(
-                radius: 16,
+                radius: 18,
                 backgroundColor: AppColors.primaryContainer,
                 child: Text(
                   (userName.isNotEmpty ? userName[0] : 'U').toUpperCase(),
-                  style: AppTextStyles.labelLarge.copyWith(
+                  style: AppTextStyles.titleSmall.copyWith(
                     color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -337,14 +294,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     children: [
                       Text(
                         userName,
-                        style: AppTextStyles.labelLarge,
+                        style: AppTextStyles.labelLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         'Sign out',
                         style: AppTextStyles.labelSmall.copyWith(
                           color: AppColors.error,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -353,7 +314,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 Icon(
                   Icons.logout_rounded,
                   size: AppDimensions.iconMd,
-                  color: AppColors.textMuted,
+                  color: AppColors.error.withValues(alpha: 0.8),
                 ),
               ],
             ],
@@ -400,16 +361,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return CustomScrollView(
       slivers: [
         if (isWide) SliverToBoxAdapter(child: _buildTopBar()),
-        SliverPadding(
-          padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              if (error != null) ...[
-                _buildErrorBanner(error),
-                const SizedBox(height: AppDimensions.spaceMd),
-              ],
-              _buildHeroPanel(summary),
-              const SizedBox(height: AppDimensions.spaceLg),
+        if (summary == null && error == null)
+          const SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (error != null) ...[
+                  _buildErrorBanner(error),
+                  const SizedBox(height: AppDimensions.spaceMd),
+                ],
+                _buildHeroPanel(summary),
+                const SizedBox(height: AppDimensions.spaceLg),
               _buildStatCardsGrid(summary),
               const SizedBox(height: AppDimensions.spaceLg),
               _buildDailyFlowPanel(summary),
@@ -504,58 +470,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           const Spacer(),
-          _buildNotificationBell(),
-          const SizedBox(width: AppDimensions.spaceMd),
-          _buildAvatarButton(user?.name ?? 'U'),
         ],
       ),
     );
   }
-
-  Widget _buildNotificationBell() {
-    return Stack(
-      children: [
-        IconButton(
-          icon: Icon(
-            Icons.notifications_outlined,
-            color: AppColors.textSecondary,
-          ),
-
-          onPressed: () {},
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: AppColors.error,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAvatarButton(String name) {
-    return GestureDetector(
-      onTap: () => context.push(RouteNames.settings),
-      child: CircleAvatar(
-        radius: 16,
-        backgroundColor: AppColors.primaryContainer,
-        child: Text(
-          (name.isNotEmpty ? name[0] : 'U').toUpperCase(),
-          style: AppTextStyles.labelMedium.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-
   // ── Hero panel — page header + applied range chip + filters ──
   Widget _buildHeroPanel(DashboardSummary? summary) {
     final user = ref.watch(currentUserProvider);

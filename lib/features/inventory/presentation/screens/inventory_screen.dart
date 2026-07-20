@@ -227,12 +227,24 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     ),
                   ),
                   subtitle: Text(item.refNum, style: AppTextStyles.labelSmall),
-                  trailing: Text(
-                    '${item.availableLotsCount ?? 0} lots',
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${item.totalQuantityAvailable ?? 0} qty',
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '${item.availableLotsCount ?? 0} lots',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                   onTap: () => context.push(
                     RouteNames.inventoryProductLotsPath(item.id),
@@ -296,6 +308,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  onTap: () => context.push(
+                    RouteNames.inventorySetLotsPath(item.id),
                   ),
                 );
               }),
