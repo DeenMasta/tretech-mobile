@@ -165,6 +165,12 @@ class StockInItemModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  /// Number of identical QR stickers required for this stock-in entry.
+  /// A legacy or incomplete response without a positive quantity still prints
+  /// one label so the lot remains printable.
+  int get labelPrintQuantity =>
+      quantity != null && quantity! > 0 ? quantity! : 1;
+
   bool get isSetEntry => entryKind == StockInEntryKind.set;
 
   bool get isProductEntry => entryKind == StockInEntryKind.product;

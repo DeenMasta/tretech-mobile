@@ -47,6 +47,13 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
 
   bool get _allSelected => _selected.length == _printable.length;
 
+  int get _selectedLabelCount => _printable
+      .where((item) => _selected.contains(item.lotId))
+      .fold(0, (total, item) => total + item.labelPrintQuantity);
+
+  int get _printableLabelCount =>
+      _printable.fold(0, (total, item) => total + item.labelPrintQuantity);
+
   void _toggleAll() {
     setState(() {
       if (_allSelected) {
@@ -207,14 +214,14 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                           activeColor: AppColors.primary,
                         ),
                         Text(
-                          'Select All (${_printable.length} lots)',
+                          'Select All (${_printable.length} lots, $_printableLabelCount labels)',
                           style: AppTextStyles.bodySmall.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const Spacer(),
                         Text(
-                          '${_selected.length} selected',
+                          '$_selectedLabelCount labels selected',
                           style: AppTextStyles.labelSmall.copyWith(
                             color: AppColors.textMuted,
                           ),
@@ -246,7 +253,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                             ),
                           ),
                           subtitle: Text(
-                            item.lot?.lotNumber ?? item.scannedLotNumber ?? '—',
+                            '${item.lot?.lotNumber ?? item.scannedLotNumber ?? '—'} · ${item.labelPrintQuantity} label${item.labelPrintQuantity == 1 ? '' : 's'}',
                             style: AppTextStyles.labelSmall.copyWith(
                               color: AppColors.textMuted,
                             ),
@@ -301,7 +308,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                           const SizedBox(width: AppDimensions.spaceSm),
                           Expanded(
                             child: AppButton(
-                              label: 'Print Selected (${_selected.length})',
+                              label: 'Print Selected ($_selectedLabelCount)',
                               icon: Icons.checklist_rounded,
                               variant: AppButtonVariant.secondary,
                               onPressed:
