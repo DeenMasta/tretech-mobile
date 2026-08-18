@@ -189,6 +189,7 @@ Future<T?> showSearchPickerSheet<T>(
   required List<T> items,
   required String Function(T) label,
   required String searchHint,
+  String Function(T)? subtitle,
 }) {
   final searchController = TextEditingController();
   return showModalBottomSheet<T>(
@@ -255,6 +256,9 @@ Future<T?> showSearchPickerSheet<T>(
                                 const Divider(height: 1),
                             itemBuilder: (_, index) => ListTile(
                               title: Text(label(filtered[index])),
+                              subtitle: subtitle == null
+                                  ? null
+                                  : Text(subtitle(filtered[index])),
                               onTap: () =>
                                   Navigator.pop(context, filtered[index]),
                             ),

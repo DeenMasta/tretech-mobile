@@ -213,6 +213,7 @@ class _DisposalItemFormScreenState
                       : 'Maximum ${_lot!.quantityAvailable ?? 0}',
                   prefixIcon: Icons.numbers_rounded,
                   keyboardType: TextInputType.number,
+                  integerOnly: true,
                 ),
               ],
             ),

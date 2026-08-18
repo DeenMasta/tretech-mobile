@@ -127,6 +127,17 @@ class ConsignmentItem {
   final int quantity;
   final String? remarks;
 
+  List<String> get componentSummaries => instrumentSetComponents.map((
+    component,
+  ) {
+    final reference = component.refNum?.trim();
+    final lots = component.lotNumbers;
+    final label =
+        '${component.productName}${reference?.isNotEmpty == true ? ' ($reference)' : ''} x ${component.quantity * quantity}';
+
+    return lots.isEmpty ? label : '$label — Lots: ${lots.join(', ')}';
+  }).toList();
+
   List<String> get instrumentSetItems => instrumentSetComponents
       .map(
         (component) =>

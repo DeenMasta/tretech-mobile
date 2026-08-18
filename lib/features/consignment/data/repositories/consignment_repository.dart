@@ -245,7 +245,12 @@ class ConsignmentRepository {
     try {
       final r = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.masterDataInstrumentSets,
-        queryParameters: {'per_page': 100, 'is_active': 1},
+        queryParameters: {
+          'per_page': 100,
+          'is_active': 1,
+          'include_availability': true,
+          'sort': 'available_qty_desc',
+        },
       );
       return (r.data?['data'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()

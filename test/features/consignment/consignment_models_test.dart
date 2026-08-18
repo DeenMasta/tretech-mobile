@@ -8,7 +8,7 @@ void main() {
         'id': 12,
         'entry_kind': 'set',
         'proposed_quantity': 1,
-        'quantity': 1,
+        'quantity': 3,
         'instrument_set': {
           'id': 3,
           'set_code': 'SET-001',
@@ -33,6 +33,11 @@ void main() {
         'COMP-LOT-001',
         'COMP-LOT-002',
       ]);
+      expect(
+        item.componentSummaries.single,
+        contains('Tibial tray (TT-01) x 3'),
+      );
+      expect(item.componentSummaries.single, contains('COMP-LOT-001'));
       expect(
         item.instrumentSetItems.single,
         'Tibial tray x 1 (TT-01) — Lots: COMP-LOT-001, COMP-LOT-002',

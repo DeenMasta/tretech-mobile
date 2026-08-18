@@ -13,18 +13,24 @@ class ProductModel {
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    final productType = json['product_type'] as String?;
     return ProductModel(
       id: (json['id'] as num).toInt(),
       refNum: (json['ref_num'] ?? '').toString(),
       productName: (json['product_name'] ?? json['name'] ?? '').toString(),
-      productType: json['product_type'] as String?,
+      productType: productType,
       category: json['category'] as String?,
       uom: json['uom'] as String?,
       requiresExpiry: (json['requires_expiry'] as bool?) ?? true,
-      requiresLot: (json['requires_lot'] as bool?) ?? true,
+      requiresLot:
+          isInstrumentProductType(productType) ||
+          ((json['requires_lot'] as bool?) ?? true),
       isActive: (json['is_active'] as bool?) ?? true,
     );
   }
+
+  static bool isInstrumentProductType(String? productType) =>
+      productType?.trim().toLowerCase() == 'instrument';
 
   final int id;
   final String refNum;
@@ -35,4 +41,6 @@ class ProductModel {
   final bool requiresExpiry;
   final bool requiresLot;
   final bool isActive;
+
+  bool get isInstrumentProduct => isInstrumentProductType(productType);
 }

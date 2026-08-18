@@ -234,6 +234,7 @@ class _ConsignmentItemFormScreenState
                               controller: _proposed,
                               label: 'Proposed Qty',
                               keyboardType: TextInputType.number,
+                              integerOnly: true,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -242,6 +243,7 @@ class _ConsignmentItemFormScreenState
                               controller: _quantity,
                               label: 'Qty Out',
                               keyboardType: TextInputType.number,
+                              integerOnly: true,
                             ),
                           ),
                         ],
@@ -274,6 +276,8 @@ class _ConsignmentItemFormScreenState
         title: 'Choose instrument set',
         items: options,
         label: (InstrumentSetModel x) => x.displayLabel,
+        subtitle: (InstrumentSetModel x) =>
+            'Available: ${x.availableSetsCount ?? 0} unit${x.availableSetsCount == 1 ? '' : 's'}',
         searchHint: 'Search instrument sets',
       );
       if (picked != null) setState(() => _set = picked);

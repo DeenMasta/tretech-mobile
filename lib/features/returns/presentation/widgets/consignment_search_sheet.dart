@@ -8,7 +8,7 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../data/models/return_session_model.dart';
 
 /// Bottom sheet for searching and selecting a confirmed consignment
-/// that does not yet have an active return session (hasReturnSession=false).
+/// that does not yet have a return session.
 class ConsignmentSearchSheet extends ConsumerStatefulWidget {
   const ConsignmentSearchSheet({super.key});
 
@@ -61,6 +61,7 @@ class _ConsignmentSearchSheetState
           'page': 1,
           'per_page': 20,
           'status': 'confirmed',
+          'has_return_session': false,
           if (query.trim().isNotEmpty) 'search': query.trim(),
         },
       );

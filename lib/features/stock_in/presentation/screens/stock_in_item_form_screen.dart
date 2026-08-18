@@ -149,8 +149,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   bool get _requiresExpiry =>
       _isProductEntry ? (_product?.requiresExpiry ?? true) : false;
 
-  bool get _isInstrumentProduct =>
-      _product?.productType?.toLowerCase() == 'instrument';
+  bool get _isInstrumentProduct => _product?.isInstrumentProduct ?? false;
 
   bool get _canGenerateProductLot => _isInstrumentProduct;
 
@@ -879,6 +878,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
               label: 'Received quantity *',
               hint: '1',
               keyboardType: TextInputType.number,
+              integerOnly: true,
               prefixIcon: Icons.numbers_rounded,
               validator: (value) => (int.tryParse(value?.trim() ?? '') ?? 0) > 0
                   ? null
@@ -921,6 +921,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             label: 'Received quantity *',
             hint: '1',
             keyboardType: TextInputType.number,
+            integerOnly: true,
             prefixIcon: Icons.numbers_rounded,
             validator: (value) => (int.tryParse(value?.trim() ?? '') ?? 0) > 0
                 ? null

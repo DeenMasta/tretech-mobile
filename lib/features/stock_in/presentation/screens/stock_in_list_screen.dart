@@ -162,7 +162,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
                 message: e.toString(),
                 onRetry: () => ref.invalidate(stockInListProvider(filter)),
               ),
-              data: (page) => _buildListBody(page, filter, canCreate),
+              data: (page) => _buildListBody(page, filter),
             ),
           ),
         ],
@@ -331,13 +331,9 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
     );
   }
 
-  Widget _buildListBody(
-    StockInSessionPage page,
-    StockInListFilter filter,
-    bool canCreate,
-  ) {
+  Widget _buildListBody(StockInSessionPage page, StockInListFilter filter) {
     if (page.items.isEmpty) {
-      return _buildEmpty(canCreate);
+      return _buildEmpty();
     }
 
     return RefreshIndicator(
@@ -404,7 +400,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
     );
   }
 
-  Widget _buildEmpty(bool canCreate) {
+  Widget _buildEmpty() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.space3xl),
@@ -432,16 +428,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
               'Create a new session to start receiving incoming stock.',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodySmall,
-            ),
-            const SizedBox(height: AppDimensions.spaceXxl),
-            if (canCreate)
-              AppButton(
-                label: 'Create session',
-                icon: Icons.add_rounded,
-                isFullWidth: false,
-                onPressed: () => context.push(RouteNames.stockInCreate),
-              ),
-          ],
+            )          ],
         ),
       ),
     );

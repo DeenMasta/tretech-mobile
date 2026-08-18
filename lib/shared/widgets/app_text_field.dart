@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -30,6 +31,7 @@ class AppTextField extends StatefulWidget {
     this.maxLines = 1,
     this.maxLength,
     this.autofillHints,
+    this.integerOnly = false,
   });
 
   final TextEditingController? controller;
@@ -56,6 +58,7 @@ class AppTextField extends StatefulWidget {
   final int maxLines;
   final int? maxLength;
   final Iterable<String>? autofillHints;
+  final bool integerOnly;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -102,8 +105,13 @@ class _AppTextFieldState extends State<AppTextField> {
           maxLines: widget.obscureText ? 1 : widget.maxLines,
           maxLength: widget.maxLength,
           autofillHints: widget.autofillHints,
+          inputFormatters: widget.integerOnly
+              ? [FilteringTextInputFormatter.digitsOnly]
+              : null,
           style: AppTextStyles.bodyMedium.copyWith(
-            color: widget.isLoading ? Colors.transparent : AppColors.textPrimary,
+            color: widget.isLoading
+                ? Colors.transparent
+                : AppColors.textPrimary,
           ),
           decoration: InputDecoration(
             hintText: widget.hint,

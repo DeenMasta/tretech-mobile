@@ -720,7 +720,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: AppDimensions.spaceMd,
               mainAxisSpacing: AppDimensions.spaceMd,
-              childAspectRatio: 0.95,
+              // KPI card text can wrap to two lines on narrow phones. The
+              // content needs 142 px after the card padding, so reserve extra
+              // room for its activity indicator and avoid vertical overflow.
+              mainAxisExtent: 184,
               children: [for (final c in cards) _buildStatCard(c)],
             );
           },

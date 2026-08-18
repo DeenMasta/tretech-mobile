@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
@@ -332,15 +331,31 @@ class ConsignmentDetailScreen extends ConsumerWidget {
                 ),
               ],
             ),
-          if (item.instrumentSetItems.isNotEmpty) ...[
+          if (item.componentSummaries.isNotEmpty) ...[
             const SizedBox(height: 6),
-            ...item.instrumentSetItems.map(
-              (v) => Text(
-                '• $v',
-                style: AppTextStyles.labelSmall.copyWith(
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(
+                bottom: AppDimensions.spaceSm,
+              ),
+              dense: true,
+              title: Text(
+                'View components (${item.componentSummaries.length})',
+                style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              children: [
+                ...item.componentSummaries.map(
+                  (v) => Text(
+                    '• $v',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
           const Divider(height: 20),
@@ -394,11 +409,13 @@ class ConsignmentDetailScreen extends ConsumerWidget {
             TextField(
               controller: proposed,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(labelText: 'Proposed qty'),
             ),
             TextField(
               controller: quantity,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(labelText: 'Qty out'),
             ),
             TextField(

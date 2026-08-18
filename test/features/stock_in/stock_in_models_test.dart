@@ -1,8 +1,23 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tretech_mobile/features/stock_in/data/models/lot_model.dart';
+import 'package:tretech_mobile/features/stock_in/data/models/instrument_set_model.dart';
+import 'package:tretech_mobile/features/stock_in/data/models/product_model.dart';
 import 'package:tretech_mobile/features/stock_in/data/models/stock_in_item_model.dart';
 
 void main() {
+  group('InstrumentSetModel', () {
+    test('parses available set units', () {
+      final set = InstrumentSetModel.fromJson({
+        'id': 8,
+        'set_code': 'SET-GEN-01',
+        'set_name': 'General Surgery Starter Set',
+        'available_sets_count': 4,
+      });
+
+      expect(set.availableSetsCount, 4);
+    });
+  });
+
   group('StockInItemModel', () {
     test('parses set entries with instrument set details', () {
       final item = StockInItemModel.fromJson({
@@ -128,6 +143,21 @@ void main() {
       expect(lot.productId, isNull);
       expect(lot.instrumentSetId, 8);
       expect(lot.lotNumber, contains('SET-GEN-01'));
+    });
+  });
+
+  group('ProductModel', () {
+    test('always enables lot tracking for instrument products', () {
+      final product = ProductModel.fromJson({
+        'id': 8,
+        'ref_num': 'INS-008',
+        'product_name': 'Surgical Instrument',
+        'product_type': ' Instrument ',
+        'requires_lot': false,
+      });
+
+      expect(product.isInstrumentProduct, isTrue);
+      expect(product.requiresLot, isTrue);
     });
   });
 }

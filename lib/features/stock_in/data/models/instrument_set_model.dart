@@ -40,6 +40,7 @@ class InstrumentSetModel {
     this.isActive = true,
     this.items = const [],
     this.itemsCount,
+    this.availableSetsCount,
   });
 
   factory InstrumentSetModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +55,7 @@ class InstrumentSetModel {
           .map(InstrumentSetComponentModel.fromJson)
           .toList(),
       itemsCount: (json['items_count'] as num?)?.toInt(),
+      availableSetsCount: (json['available_sets_count'] as num?)?.toInt(),
     );
   }
 
@@ -64,6 +66,7 @@ class InstrumentSetModel {
   final bool isActive;
   final List<InstrumentSetComponentModel> items;
   final int? itemsCount;
+  final int? availableSetsCount;
 
   int get componentCount => itemsCount ?? items.length;
 
