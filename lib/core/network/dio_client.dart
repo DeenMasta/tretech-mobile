@@ -6,7 +6,8 @@ import 'interceptors/auth_interceptor.dart';
 import 'interceptors/error_interceptor.dart';
 
 /// Configured Dio instance with:
-/// - Base URL from --dart-define (falls back to empty string)
+/// - Staging base URL for debug/profile and production for release builds
+/// - Optional `API_BASE_URL` override for local or integration environments
 /// - Timeouts from AppConstants
 /// - AuthInterceptor (Bearer token)
 /// - ErrorInterceptor (typed exceptions)
@@ -19,9 +20,12 @@ class DioClient {
   Dio get dio => _dio;
 
   static Dio _createDio(Ref ref) {
+    const isReleaseBuild = bool.fromEnvironment('dart.vm.product');
     const baseUrl = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://tretech-be.mysztechnology.com',
+      defaultValue: isReleaseBuild
+          ? 'https://tretech-be.mysztechnology.com'
+          : 'https://tretech-staging-be.mysztechnology.com',
     );
 
     final dio = Dio(

@@ -1,6 +1,7 @@
 class InstrumentSetComponentModel {
   const InstrumentSetComponentModel({
     required this.id,
+    this.instrumentSetItemId,
     required this.name,
     this.code,
     required this.quantity,
@@ -10,6 +11,7 @@ class InstrumentSetComponentModel {
   factory InstrumentSetComponentModel.fromJson(Map<String, dynamic> json) {
     final product = json['product'] as Map<String, dynamic>?;
     return InstrumentSetComponentModel(
+      instrumentSetItemId: (json['id'] as num?)?.toInt(),
       id:
           (json['product_id'] as num?)?.toInt() ??
           (product?['id'] as num?)?.toInt() ??
@@ -22,6 +24,7 @@ class InstrumentSetComponentModel {
   }
 
   final int id;
+  final int? instrumentSetItemId;
   final String name;
   final String? code;
   final int quantity;

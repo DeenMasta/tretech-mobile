@@ -103,6 +103,29 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
+    final canCreate =
+        currentUser?.permissions.contains('stock_in.create') ?? false;
+
+    if (!canCreate) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.sidebarBg,
+          title: Text(
+            'Create stock-in session',
+            style: AppTextStyles.titleMedium,
+          ),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.spaceLg),
+            child: Text(
+              'You do not have permission to create stock-in sessions.',
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

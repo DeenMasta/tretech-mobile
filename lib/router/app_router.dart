@@ -33,9 +33,7 @@ import '../features/returns/presentation/screens/return_scan_item_screen.dart';
 import '../features/stock_in/presentation/screens/confirmation_screen.dart';
 import '../features/stock_in/presentation/screens/create_session_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_detail_screen.dart';
-import '../features/stock_in/presentation/screens/stock_in_edit_session_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_item_form_screen.dart';
-import '../features/stock_in/presentation/screens/stock_in_item_correction_screen.dart';
 import '../features/stock_in/presentation/screens/stock_in_list_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 import 'route_names.dart';
@@ -154,8 +152,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.stockInEdit,
         name: 'stockInEdit',
-        builder: (_, state) => StockInEditSessionScreen(
-          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
+        builder: (_, _) => const _StockInWebOnlyActionScreen(
+          title: 'Edit stock-in session',
+          description: 'Session updates are available on the website only.',
         ),
       ),
       GoRoute(
@@ -168,17 +167,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.stockInItemEdit,
         name: 'stockInItemEdit',
-        builder: (_, state) => StockInItemFormScreen(
-          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
-          itemId: int.parse(state.pathParameters['itemId'] ?? '0'),
+        builder: (_, _) => const _StockInWebOnlyActionScreen(
+          title: 'Edit stock-in item',
+          description: 'Item updates are available on the website only.',
         ),
       ),
       GoRoute(
         path: RouteNames.stockInItemCorrect,
         name: 'stockInItemCorrect',
-        builder: (_, state) => StockInItemCorrectionScreen(
-          sessionId: int.parse(state.pathParameters['id'] ?? '0'),
-          itemId: int.parse(state.pathParameters['itemId'] ?? '0'),
+        builder: (_, _) => const _StockInWebOnlyActionScreen(
+          title: 'Correct stock-in item',
+          description:
+              'Finalized-item corrections are available on the website only.',
         ),
       ),
       GoRoute(
@@ -344,6 +344,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         Scaffold(body: Center(child: Text('Route not found: ${state.error}'))),
   );
 });
+
+class _StockInWebOnlyActionScreen extends StatelessWidget {
+  const _StockInWebOnlyActionScreen({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(title)),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(description, textAlign: TextAlign.center),
+      ),
+    ),
+  );
+}
 
 CustomTransitionPage<void> _fadePage({
   required LocalKey key,

@@ -11,6 +11,7 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/scan_input_field.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/instrument_set_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/stock_in_item_model.dart';
@@ -42,6 +43,8 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   final _lotCtl = TextEditingController();
   final _quantityCtl = TextEditingController(text: '1');
   final _remarksCtl = TextEditingController();
+  final Map<int, TextEditingController> _componentLotCtls = {};
+  final Set<int> _generatedComponentLotIds = {};
 
   StockInEntryKind _entryKind = StockInEntryKind.product;
   ProductModel? _product;
@@ -51,6 +54,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   LotEntryMode _lotEntryMode = LotEntryMode.scan;
   LotEntryMode _expiryEntryMode = LotEntryMode.scan;
   bool _missingLotFlag = false;
+  bool _generateLotNumber = false;
   bool _saving = false;
 
   static const EventChannel _scannerChannel = EventChannel(
@@ -61,6 +65,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   String? _productError;
   String? _instrumentSetError;
   String? _expiryError;
+  String? _componentLotsError;
 
   bool _initialised = false;
 
@@ -72,7 +77,9 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     super.initState();
     _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
       final value = data?.toString().trim() ?? '';
-      if (value.isEmpty || !mounted || _missingLotFlag) return;
+      if (value.isEmpty || !mounted || _missingLotFlag || _generateLotNumber) {
+        return;
+      }
       setState(() {
         _lotCtl.text = value;
         _lotEntryMode = LotEntryMode.scan;
@@ -86,6 +93,9 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     _scannerSub?.cancel();
     _quantityCtl.dispose();
     _remarksCtl.dispose();
+    for (final controller in _componentLotCtls.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -109,12 +119,12 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       );
     }
     if (item.instrumentSet != null) {
-      _instrumentSet = instrumentSetCache
-          .cast<InstrumentSetModel?>()
-          .firstWhere(
-            (set) => set?.id == item.instrumentSet!.id,
-            orElse: () => item.instrumentSet,
-          );
+      _instrumentSet = item.instrumentSet!.items.isNotEmpty
+          ? item.instrumentSet
+          : instrumentSetCache.cast<InstrumentSetModel?>().firstWhere(
+              (set) => set?.id == item.instrumentSet!.id,
+              orElse: () => item.instrumentSet,
+            );
     }
 
     _lotCtl.text = item.scannedLotNumber ?? '';
@@ -124,7 +134,11 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     _lotEntryMode = item.lotEntryMode;
     _expiryEntryMode = item.expiryEntryMode;
     _missingLotFlag = item.missingLotFlag;
+    _generateLotNumber = item.generateLotNumber;
     _remarksCtl.text = item.remarks ?? '';
+    if (_instrumentSet != null) {
+      _setComponentLotDecisions(_instrumentSet!, item.componentLots);
+    }
   }
 
   bool get _isProductEntry => _entryKind == StockInEntryKind.product;
@@ -135,15 +149,44 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
   bool get _requiresExpiry =>
       _isProductEntry ? (_product?.requiresExpiry ?? true) : false;
 
-  String? get _automaticOverrideReason {
-    if (_missingLotFlag) return 'Supplier lot number unavailable at capture.';
-    if (_lotEntryMode == LotEntryMode.manual) {
-      return 'Lot number entered manually on mobile.';
-    }
-    if (_expiryEntryMode == LotEntryMode.manual) {
-      return 'Expiry date entered manually on mobile.';
-    }
-    return null;
+  bool get _isInstrumentProduct =>
+      _product?.productType?.toLowerCase() == 'instrument';
+
+  bool get _canGenerateProductLot => _isInstrumentProduct;
+
+  DateTime get _malaysiaNow =>
+      DateTime.now().toUtc().add(const Duration(hours: 8));
+
+  String _initials(String value, int length) {
+    final normalized = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    return normalized.length >= length
+        ? normalized.substring(0, length)
+        : normalized.padRight(length, 'X');
+  }
+
+  String get _expectedGeneratedProductLotNumber {
+    final product = _product;
+    if (product == null) return '';
+    final now = _malaysiaNow;
+    final date =
+        '${(now.year % 100).toString().padLeft(2, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    return '${_initials(product.refNum, 3)}-${_initials(product.productName, 4)}-$date-01';
+  }
+
+  String _expectedGeneratedComponentLotNumber(
+    InstrumentSetComponentModel component,
+  ) {
+    final set = _instrumentSet;
+    if (set == null) return '';
+    final rawCode =
+        (set.setCode?.trim().isNotEmpty == true ? set.setCode! : 'SET${set.id}')
+            .toUpperCase()
+            .replaceAll(RegExp(r'[^A-Z0-9_-]+'), '');
+    final code = rawCode.isEmpty ? 'SET${set.id}' : rawCode;
+    final now = _malaysiaNow;
+    final date =
+        '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    return 'COMP-$code-P${component.id}-$date';
   }
 
   bool _validate() {
@@ -157,11 +200,15 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _expiryError = _requiresExpiry && _expiryDate == null
           ? 'Expiry date is required for this product.'
           : null;
+      _componentLotsError = !_isProductEntry && !_hasCompleteComponentLots
+          ? 'Enter a lot number or choose generation for every set component.'
+          : null;
     });
 
     return _productError == null &&
         _instrumentSetError == null &&
         _expiryError == null &&
+        _componentLotsError == null &&
         (int.tryParse(_quantityCtl.text.trim()) ?? 0) > 0;
   }
 
@@ -179,10 +226,12 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                 ? await notifier.updateItem(
                     widget.itemId!,
                     productId: _product!.id,
-                    scannedLotNumber: _requiresLot && !_missingLotFlag
+                    scannedLotNumber:
+                        _requiresLot && !_missingLotFlag && !_generateLotNumber
                         ? _normalizedLot
                         : null,
-                    clearLot: _requiresLot && _missingLotFlag,
+                    clearLot:
+                        _requiresLot && (_missingLotFlag || _generateLotNumber),
                     expiryDate: _requiresExpiry ? _expiryDate : null,
                     manufacturingDate: _manufacturingDate,
                     quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
@@ -190,13 +239,17 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                     lotEntryMode: _lotEntryMode,
                     expiryEntryMode: _expiryEntryMode,
                     missingLotFlag: _requiresLot ? _missingLotFlag : false,
-                    entryOverrideReason: _automaticOverrideReason,
+                    generateLotNumber:
+                        _canGenerateProductLot && _generateLotNumber,
                     remarks: _normalizedRemarks,
                   )
                 : await notifier.addItem(
                     ItemDraft(
                       product: _product,
-                      scannedLotNumber: _requiresLot && !_missingLotFlag
+                      scannedLotNumber:
+                          _requiresLot &&
+                              !_missingLotFlag &&
+                              !_generateLotNumber
                           ? _normalizedLot
                           : null,
                       expiryDate: _requiresExpiry ? _expiryDate : null,
@@ -205,17 +258,21 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
                       lotEntryMode: _lotEntryMode,
                       expiryEntryMode: _expiryEntryMode,
                       missingLotFlag: _requiresLot ? _missingLotFlag : false,
-                      entryOverrideReason: _automaticOverrideReason,
+                      generateLotNumber:
+                          _canGenerateProductLot && _generateLotNumber,
                       remarks: _normalizedRemarks,
                     ),
                   )
           : widget.isEdit
           ? await notifier.updateSetItem(
               widget.itemId!,
+              componentLots: _componentLotDecisions,
+              quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
               remarks: _normalizedRemarks,
             )
           : await notifier.addSetItem(
               instrumentSetId: _instrumentSet!.id,
+              componentLots: _componentLotDecisions,
               quantity: int.tryParse(_quantityCtl.text.trim()) ?? 1,
               remarks: _normalizedRemarks,
             );
@@ -240,7 +297,8 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       final success = await notifier.addItem(
         ItemDraft(
           product: _product,
-          scannedLotNumber: _requiresLot && !_missingLotFlag
+          scannedLotNumber:
+              _requiresLot && !_missingLotFlag && !_generateLotNumber
               ? _normalizedLot
               : null,
           expiryDate: _requiresExpiry ? _expiryDate : null,
@@ -249,7 +307,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
           lotEntryMode: _lotEntryMode,
           expiryEntryMode: _expiryEntryMode,
           missingLotFlag: _requiresLot ? _missingLotFlag : false,
-          entryOverrideReason: _automaticOverrideReason,
+          generateLotNumber: _canGenerateProductLot && _generateLotNumber,
           remarks: _normalizedRemarks,
         ),
       );
@@ -264,6 +322,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
           _lotEntryMode = LotEntryMode.scan;
           _expiryEntryMode = LotEntryMode.scan;
           _missingLotFlag = false;
+          _generateLotNumber = false;
           _remarksCtl.clear();
           _product = keepProduct;
           _productError = null;
@@ -287,6 +346,79 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     return value.isEmpty ? null : value;
   }
 
+  bool get _hasCompleteComponentLots {
+    final components = _instrumentSet?.items ?? const [];
+    return components.isNotEmpty &&
+        components.every((component) {
+          final id = component.instrumentSetItemId;
+          return id != null &&
+              (_generatedComponentLotIds.contains(id) ||
+                  (_componentLotCtls[id]?.text.trim().isNotEmpty ?? false));
+        });
+  }
+
+  List<StockInComponentLotDecision> get _componentLotDecisions =>
+      (_instrumentSet?.items ?? const []).map((component) {
+        final id = component.instrumentSetItemId;
+        if (id == null) {
+          throw StateError(
+            'Instrument set component is missing its identifier.',
+          );
+        }
+        final generated = _generatedComponentLotIds.contains(id);
+        final lotNumber = _componentLotCtls[id]?.text.trim();
+        return StockInComponentLotDecision(
+          instrumentSetItemId: id,
+          lotNumber: generated || lotNumber == null || lotNumber.isEmpty
+              ? null
+              : lotNumber,
+          generateLotNumber: generated,
+        );
+      }).toList();
+
+  void _setComponentLotDecisions(
+    InstrumentSetModel set, [
+    List<StockInComponentLotDecision> existing = const [],
+  ]) {
+    _clearComponentLotDecisions();
+    final decisionsById = {
+      for (final decision in existing) decision.instrumentSetItemId: decision,
+    };
+    for (final component in set.items) {
+      final id = component.instrumentSetItemId;
+      if (id == null) continue;
+      final decision = decisionsById[id];
+      _componentLotCtls[id] = TextEditingController(
+        text: decision?.lotNumber ?? '',
+      );
+      if (decision?.generateLotNumber ?? false) {
+        _generatedComponentLotIds.add(id);
+      }
+    }
+  }
+
+  void _clearComponentLotDecisions() {
+    for (final controller in _componentLotCtls.values) {
+      controller.dispose();
+    }
+    _componentLotCtls.clear();
+    _generatedComponentLotIds.clear();
+  }
+
+  Future<void> _scanComponentLot(int componentId) async {
+    final result = await BarcodeScannerSheet.show(
+      context,
+      title: 'Capture component lot number',
+      helperText: 'Scan the lot for this instrument-set component.',
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _componentLotCtls[componentId]?.text = result.value;
+      _generatedComponentLotIds.remove(componentId);
+      _componentLotsError = null;
+    });
+  }
+
   Future<void> _pickProduct() async {
     final picked = await ProductSearchSheet.show(context);
     if (picked == null || !mounted) return;
@@ -300,6 +432,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
         _expiryDate = null;
         _lotEntryMode = LotEntryMode.scan;
         _missingLotFlag = false;
+        _generateLotNumber = false;
       }
     });
   }
@@ -317,12 +450,14 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       setState(() {
         _instrumentSet = detailed;
         _instrumentSetError = null;
+        _setComponentLotDecisions(detailed);
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _instrumentSet = picked;
         _instrumentSetError = null;
+        _setComponentLotDecisions(picked);
       });
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -338,8 +473,9 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     if (result == null || !mounted) return;
     setState(() {
       _lotCtl.text = result.value;
-      _lotEntryMode = result.manual ? LotEntryMode.manual : LotEntryMode.scan;
+      _lotEntryMode = LotEntryMode.scan;
       _missingLotFlag = false;
+      _generateLotNumber = false;
     });
   }
 
@@ -355,7 +491,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     if (picked == null || !mounted) return;
     setState(() {
       _expiryDate = picked;
-      _expiryEntryMode = LotEntryMode.manual;
+      _expiryEntryMode = LotEntryMode.scan;
       _expiryError = null;
     });
   }
@@ -377,6 +513,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _entryKind = kind;
       _product = null;
       _instrumentSet = null;
+      _clearComponentLotDecisions();
       _lotCtl.clear();
       _remarksCtl.clear();
       _expiryDate = null;
@@ -387,17 +524,61 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
       _missingLotFlag = false;
       _productError = null;
       _instrumentSetError = null;
+      _componentLotsError = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final canCapture =
+        ref
+            .watch(currentUserProvider)
+            ?.permissions
+            .contains('stock_in.edit_draft') ??
+        false;
+
+    if (!canCapture) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.sidebarBg,
+          title: Text('Add item', style: AppTextStyles.titleMedium),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.spaceLg),
+            child: Text(
+              'You do not have permission to capture stock-in items.',
+            ),
+          ),
+        ),
+      );
+    }
+
     final state = ref.watch(stockInSessionControllerProvider(widget.sessionId));
     final errorFromProvider = state.error;
     final productCache =
         ref.watch(productsProvider).value ?? const <ProductModel>[];
     final instrumentSetCache =
         ref.watch(instrumentSetsProvider).value ?? const <InstrumentSetModel>[];
+
+    if (!state.isLoading && state.session != null && !state.session!.isDraft) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.sidebarBg,
+          title: Text('Add item', style: AppTextStyles.titleMedium),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.spaceLg),
+            child: Text(
+              'Items can only be captured while the session is a draft.',
+            ),
+          ),
+        ),
+      );
+    }
 
     if (widget.isEdit && !_initialised) {
       final item = state.items.firstWhere(
@@ -502,6 +683,10 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             ] else ...[
               _buildInstrumentSetSection(),
               const SizedBox(height: AppDimensions.spaceLg),
+              if (_instrumentSet != null) ...[
+                _buildSetComponentLotsSection(),
+                const SizedBox(height: AppDimensions.spaceLg),
+              ],
               _buildSetNotesSection(),
             ],
           ],
@@ -639,7 +824,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     return _SectionCard(
       title: 'Lot information',
       description: _requiresLot
-          ? 'Scan the supplier lot using the device camera, or flag it as missing when needed.'
+          ? 'Scan the supplier lot, or generate a system lot number for instrument products when needed.'
           : 'This product does not require lot tracking. The backend will generate the lot on finalize.',
       child: Column(
         children: [
@@ -647,37 +832,36 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             ScanInputField(
               controller: _lotCtl,
               label: 'Lot number',
-              hint: 'Scan or enter supplier lot number',
+              hint: 'Scan supplier lot number',
               onScan: _scanLot,
-              enabled: !_missingLotFlag,
-              onChanged: (value) {
-                if (_lotEntryMode != LotEntryMode.manual) {
-                  setState(() {
-                    _lotEntryMode = LotEntryMode.manual;
-                  });
-                }
-              },
-              errorText:
-                  !_missingLotFlag &&
-                      _lotEntryMode == LotEntryMode.manual &&
-                      (_normalizedLot?.isEmpty ?? true)
-                  ? 'Lot number is required.'
-                  : null,
+              enabled: !_generateLotNumber,
             ),
+            if (_generateLotNumber) ...[
+              const SizedBox(height: AppDimensions.spaceMd),
+              _infoBanner(
+                icon: Icons.auto_awesome_rounded,
+                text:
+                    'Expected generated lot: $_expectedGeneratedProductLotNumber. The server may add a sequence if this lot already exists.',
+              ),
+            ],
             const SizedBox(height: AppDimensions.spaceMd),
-            _switchTile(
-              title: 'Mark as missing lot',
-              subtitle:
-                  'Enable when the supplier lot number is absent on the package.',
-              value: _missingLotFlag,
-              onChanged: (value) => setState(() {
-                _missingLotFlag = value;
-                if (value) {
-                  _lotCtl.clear();
-                  _lotEntryMode = LotEntryMode.manual;
-                }
-              }),
-            ),
+            if (_canGenerateProductLot) ...[
+              const SizedBox(height: AppDimensions.spaceMd),
+              _switchTile(
+                title: 'Generate lot number',
+                subtitle:
+                    'Create a system lot number when the session is finalized.',
+                value: _generateLotNumber,
+                onChanged: (value) => setState(() {
+                  _generateLotNumber = value;
+                  if (value) {
+                    _lotCtl.clear();
+                    _missingLotFlag = false;
+                    _lotEntryMode = LotEntryMode.scan;
+                  }
+                }),
+              ),
+            ],
             const SizedBox(height: AppDimensions.spaceMd),
           ] else
             _infoBanner(
@@ -729,7 +913,7 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
     return _SectionCard(
       title: 'Receiving notes',
       description:
-          'Set-instance entries only track the selected set and optional remarks at draft time.',
+          'Set quantity applies to every component. Add an optional note for this set receipt.',
       child: Column(
         children: [
           AppTextField(
@@ -750,6 +934,94 @@ class _StockInItemFormScreenState extends ConsumerState<StockInItemFormScreen> {
             prefixIcon: Icons.notes_rounded,
             maxLines: 3,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSetComponentLotsSection() {
+    final components = _instrumentSet!.items;
+    return _SectionCard(
+      title: 'Component lot numbers',
+      description:
+          'Record a lot number for each component, or choose generation when no supplier lot is available.',
+      child: Column(
+        children: [
+          if (components.isEmpty)
+            _infoBanner(
+              icon: Icons.error_outline_rounded,
+              text:
+                  'This instrument set has no components. Choose a set with configured components.',
+            )
+          else
+            ...components.map((component) {
+              final id = component.instrumentSetItemId;
+              if (id == null) {
+                return _infoBanner(
+                  icon: Icons.error_outline_rounded,
+                  text: 'A component is missing its backend identifier.',
+                );
+              }
+              final generated = _generatedComponentLotIds.contains(id);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppDimensions.spaceMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${component.name}${component.code?.isNotEmpty == true ? ' (${component.code})' : ''} x ${component.quantity}',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceSm),
+                    AppTextField(
+                      controller: _componentLotCtls[id],
+                      label: 'Lot number',
+                      hint: 'Scan or enter supplier lot',
+                      prefixIcon: Icons.qr_code_scanner_outlined,
+                      onPrefixIconTap: () => _scanComponentLot(id),
+                      enabled: !generated && !_saving,
+                      onChanged: (_) => setState(() {
+                        _generatedComponentLotIds.remove(id);
+                        _componentLotsError = null;
+                      }),
+                    ),
+                    if (generated) ...[
+                      const SizedBox(height: AppDimensions.spaceXs),
+                      Text(
+                        'Expected generated lot: ${_expectedGeneratedComponentLotNumber(component)}',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppDimensions.spaceXs),
+                    _switchTile(
+                      title: 'Generate lot number',
+                      subtitle: 'Create a system lot number when finalized.',
+                      value: generated,
+                      onChanged: _saving
+                          ? (_) {}
+                          : (value) => setState(() {
+                              if (value) {
+                                _componentLotCtls[id]?.clear();
+                                _generatedComponentLotIds.add(id);
+                              } else {
+                                _generatedComponentLotIds.remove(id);
+                              }
+                              _componentLotsError = null;
+                            }),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          if (_componentLotsError != null)
+            Text(
+              _componentLotsError!,
+              style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
+            ),
         ],
       ),
     );

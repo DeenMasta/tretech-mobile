@@ -55,6 +55,7 @@ class ItemDraft {
     this.lotEntryMode = LotEntryMode.scan,
     this.expiryEntryMode = LotEntryMode.scan,
     this.missingLotFlag = false,
+    this.generateLotNumber = false,
     this.entryOverrideReason,
     this.sourceBarcode,
     this.remarks,
@@ -68,13 +69,17 @@ class ItemDraft {
   final LotEntryMode lotEntryMode;
   final LotEntryMode expiryEntryMode;
   final bool missingLotFlag;
+  final bool generateLotNumber;
   final String? entryOverrideReason;
   final String? sourceBarcode;
   final String? remarks;
 
   bool get hasProduct => product != null;
   bool get requiresLot => product?.requiresLot ?? true;
-  bool get hasLot => (scannedLotNumber?.isNotEmpty ?? false) || missingLotFlag;
+  bool get hasLot =>
+      (scannedLotNumber?.isNotEmpty ?? false) ||
+      missingLotFlag ||
+      generateLotNumber;
   bool get lotSatisfied => !requiresLot || hasLot;
   bool get hasExpiry => expiryDate != null;
 
@@ -94,6 +99,7 @@ class ItemDraft {
     LotEntryMode? lotEntryMode,
     LotEntryMode? expiryEntryMode,
     bool? missingLotFlag,
+    bool? generateLotNumber,
     String? entryOverrideReason,
     String? sourceBarcode,
     String? remarks,
@@ -112,6 +118,7 @@ class ItemDraft {
       lotEntryMode: lotEntryMode ?? this.lotEntryMode,
       expiryEntryMode: expiryEntryMode ?? this.expiryEntryMode,
       missingLotFlag: missingLotFlag ?? this.missingLotFlag,
+      generateLotNumber: generateLotNumber ?? this.generateLotNumber,
       entryOverrideReason: entryOverrideReason ?? this.entryOverrideReason,
       sourceBarcode: sourceBarcode ?? this.sourceBarcode,
       remarks: remarks ?? this.remarks,
@@ -177,7 +184,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
         session.id,
         entryKind: StockInEntryKind.product,
         productId: draft.product!.id,
-        scannedLotNumber: draft.missingLotFlag
+        scannedLotNumber: draft.missingLotFlag || draft.generateLotNumber
             ? null
             : (draft.scannedLotNumber?.trim().isEmpty ?? true
                   ? null
@@ -188,6 +195,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
         lotEntryMode: draft.lotEntryMode,
         expiryEntryMode: draft.expiryEntryMode,
         missingLotFlag: draft.missingLotFlag,
+        generateLotNumber: draft.generateLotNumber,
         sourceBarcode: draft.sourceBarcode,
         entryOverrideReason: draft.entryOverrideReason,
         remarks: draft.remarks,
@@ -203,6 +211,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
 
   Future<bool> addSetItem({
     required int instrumentSetId,
+    required List<StockInComponentLotDecision> componentLots,
     int quantity = 1,
     String? remarks,
   }) async {
@@ -215,6 +224,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
         session.id,
         entryKind: StockInEntryKind.set,
         instrumentSetId: instrumentSetId,
+        componentLots: componentLots,
         quantity: quantity,
         remarks: remarks,
       );
@@ -238,6 +248,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
     LotEntryMode lotEntryMode = LotEntryMode.scan,
     LotEntryMode expiryEntryMode = LotEntryMode.scan,
     bool missingLotFlag = false,
+    bool generateLotNumber = false,
     String? entryOverrideReason,
     String? remarks,
   }) async {
@@ -259,6 +270,7 @@ class StockInSessionController extends Notifier<StockInSessionState> {
         lotEntryMode: lotEntryMode,
         expiryEntryMode: expiryEntryMode,
         missingLotFlag: missingLotFlag,
+        generateLotNumber: generateLotNumber,
         entryOverrideReason: entryOverrideReason,
         remarks: remarks,
       );
@@ -273,7 +285,12 @@ class StockInSessionController extends Notifier<StockInSessionState> {
     }
   }
 
-  Future<bool> updateSetItem(int itemId, {String? remarks}) async {
+  Future<bool> updateSetItem(
+    int itemId, {
+    required List<StockInComponentLotDecision> componentLots,
+    int? quantity,
+    String? remarks,
+  }) async {
     final session = state.session;
     if (session == null) return false;
 
@@ -282,6 +299,8 @@ class StockInSessionController extends Notifier<StockInSessionState> {
       final updated = await _repo.updateItem(
         session.id,
         itemId,
+        componentLots: componentLots,
+        quantity: quantity,
         remarks: remarks,
       );
       state = state.copyWith(

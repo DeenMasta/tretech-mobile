@@ -44,6 +44,41 @@ class ConsignmentLot {
       '$lotNumber - ${productName ?? '-'}${refNum?.isNotEmpty == true ? ' ($refNum)' : ''}${quantityAvailable == null ? '' : ' [Qty: $quantityAvailable]'}';
 }
 
+class ConsignmentInstrumentSetComponent {
+  const ConsignmentInstrumentSetComponent({
+    required this.id,
+    required this.productId,
+    required this.productName,
+    this.refNum,
+    required this.quantity,
+    this.lotNumbers = const [],
+  });
+
+  factory ConsignmentInstrumentSetComponent.fromJson(
+    Map<String, dynamic> json,
+  ) => ConsignmentInstrumentSetComponent(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    productId: (json['product_id'] as num?)?.toInt() ?? 0,
+    productName: (json['product_name'] ?? json['name'] ?? '-').toString(),
+    refNum: (json['ref_num'] ?? json['code'])?.toString(),
+    quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+    lotNumbers: (json['lot_numbers'] as List<dynamic>? ?? const [])
+        .map((lotNumber) => lotNumber.toString())
+        .where((lotNumber) => lotNumber.isNotEmpty)
+        .toList(),
+  );
+
+  final int id;
+  final int productId;
+  final String productName;
+  final String? refNum;
+  final int quantity;
+  final List<String> lotNumbers;
+
+  String get label =>
+      '$productName x $quantity${refNum?.isNotEmpty == true ? ' ($refNum)' : ''}';
+}
+
 class ConsignmentItem {
   const ConsignmentItem({
     required this.id,
@@ -52,13 +87,20 @@ class ConsignmentItem {
     this.instrumentSetId,
     this.instrumentSetName,
     this.instrumentSetCode,
-    this.instrumentSetItems = const [],
+    this.instrumentSetComponents = const [],
     required this.proposedQuantity,
     required this.quantity,
     this.remarks,
   });
   factory ConsignmentItem.fromJson(Map<String, dynamic> json) {
     final set = json['instrument_set'] as Map<String, dynamic>?;
+    final components =
+        (set?['components'] as List<dynamic>? ??
+                set?['items'] as List<dynamic>? ??
+                const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ConsignmentInstrumentSetComponent.fromJson)
+            .toList();
     return ConsignmentItem(
       id: (json['id'] as num).toInt(),
       entryKind: (json['entry_kind'] ?? 'lot').toString(),
@@ -68,16 +110,7 @@ class ConsignmentItem {
       instrumentSetId: (json['instrument_set_id'] as num?)?.toInt(),
       instrumentSetName: set?['set_name']?.toString(),
       instrumentSetCode: set?['set_code']?.toString(),
-      instrumentSetItems:
-          (set?['items'] as List<dynamic>? ??
-                  set?['components'] as List<dynamic>? ??
-                  const [])
-              .whereType<Map<String, dynamic>>()
-              .map(
-                (e) =>
-                    '${e['name'] ?? e['product_name'] ?? '-'} x ${e['quantity'] ?? 0}',
-              )
-              .toList(),
+      instrumentSetComponents: components,
       proposedQuantity: (json['proposed_quantity'] as num?)?.toInt() ?? 1,
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       remarks: json['remarks']?.toString(),
@@ -89,10 +122,18 @@ class ConsignmentItem {
   final int? instrumentSetId;
   final String? instrumentSetName;
   final String? instrumentSetCode;
-  final List<String> instrumentSetItems;
+  final List<ConsignmentInstrumentSetComponent> instrumentSetComponents;
   final int proposedQuantity;
   final int quantity;
   final String? remarks;
+
+  List<String> get instrumentSetItems => instrumentSetComponents
+      .map(
+        (component) =>
+            '${component.label}${component.lotNumbers.isEmpty ? '' : ' — Lots: ${component.lotNumbers.join(', ')}'}',
+      )
+      .toList();
+
   bool get isSet => entryKind == 'set';
 }
 

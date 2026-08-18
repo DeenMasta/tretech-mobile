@@ -176,6 +176,52 @@ class ReturnsRepository {
     }
   }
 
+  Future<void> updateItemRemarks(
+    int sessionId,
+    int itemId,
+    String? remarks,
+  ) async {
+    try {
+      await _dio.patch<void>(
+        ApiEndpoints.returnSessionItem(sessionId, itemId),
+        data: {'remarks': _nullableRemarks(remarks)},
+      );
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<void> updateReconciliationItemRemarks(
+    int reconciliationId,
+    int itemId,
+    String? remarks,
+  ) async {
+    try {
+      await _dio.patch<void>(
+        '${ApiEndpoints.reconciliations}/$reconciliationId/items/$itemId',
+        data: {'remarks': _nullableRemarks(remarks)},
+      );
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
+  Future<void> updateReconciliationComponentRemarks(
+    int reconciliationId,
+    int itemId,
+    int componentId,
+    String? remarks,
+  ) async {
+    try {
+      await _dio.patch<void>(
+        '${ApiEndpoints.reconciliations}/$reconciliationId/items/$itemId/components/$componentId',
+        data: {'remarks': _nullableRemarks(remarks)},
+      );
+    } on DioException catch (e) {
+      throw _wrap(e.error ?? const UnknownException());
+    }
+  }
+
   // ── Complete session ─────────────────────────────────────────
 
   /// Downloads the usage/invoice PDF generated after a return is completed.
@@ -214,6 +260,11 @@ class ReturnsRepository {
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());
     }
+  }
+
+  String? _nullableRemarks(String? remarks) {
+    final value = remarks?.trim() ?? '';
+    return value.isEmpty ? null : value;
   }
 }
 

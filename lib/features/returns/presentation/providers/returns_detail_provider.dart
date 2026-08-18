@@ -24,13 +24,12 @@ class ReturnDetailState {
     bool? isSaving,
     String? error,
     bool clearError = false,
-  }) =>
-      ReturnDetailState(
-        session: session ?? this.session,
-        isLoading: isLoading ?? this.isLoading,
-        isSaving: isSaving ?? this.isSaving,
-        error: clearError ? null : (error ?? this.error),
-      );
+  }) => ReturnDetailState(
+    session: session ?? this.session,
+    isLoading: isLoading ?? this.isLoading,
+    isSaving: isSaving ?? this.isSaving,
+    error: clearError ? null : (error ?? this.error),
+  );
 }
 
 // ── Detail notifier ───────────────────────────────────────────────────────────
@@ -77,6 +76,55 @@ class ReturnDetailNotifier extends Notifier<ReturnDetailState> {
     }
   }
 
+  Future<bool> updateItemRemarks(int itemId, String? remarks) async {
+    return _updateRemarks(
+      () => _repo.updateItemRemarks(_sessionId, itemId, remarks),
+    );
+  }
+
+  Future<bool> updateReconciliationItemRemarks(
+    int reconciliationId,
+    int itemId,
+    String? remarks,
+  ) async {
+    return _updateRemarks(
+      () => _repo.updateReconciliationItemRemarks(
+        reconciliationId,
+        itemId,
+        remarks,
+      ),
+    );
+  }
+
+  Future<bool> updateReconciliationComponentRemarks(
+    int reconciliationId,
+    int itemId,
+    int componentId,
+    String? remarks,
+  ) async {
+    return _updateRemarks(
+      () => _repo.updateReconciliationComponentRemarks(
+        reconciliationId,
+        itemId,
+        componentId,
+        remarks,
+      ),
+    );
+  }
+
+  Future<bool> _updateRemarks(Future<void> Function() update) async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      await update();
+      await _load();
+      state = state.copyWith(isSaving: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+      return false;
+    }
+  }
+
   Future<bool> complete() async {
     state = state.copyWith(isSaving: true, clearError: true);
     try {
@@ -109,5 +157,5 @@ class ReturnDetailNotifier extends Notifier<ReturnDetailState> {
 
 final returnDetailProvider = NotifierProvider.autoDispose
     .family<ReturnDetailNotifier, ReturnDetailState, int>(
-  ReturnDetailNotifier.new,
-);
+      ReturnDetailNotifier.new,
+    );

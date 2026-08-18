@@ -66,6 +66,11 @@ class ReturnDetailScreen extends ConsumerWidget {
     final canReopen =
         session.isCompleted &&
         permissions.contains('returns.reopen_reconciliation');
+    final canEditItemRemarks =
+        !session.isReadOnly && permissions.contains('returns.create');
+    final canEditReconciliationRemarks =
+        session.reconciliation != null &&
+        permissions.contains('returns.finalize');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -122,13 +127,50 @@ class ReturnDetailScreen extends ConsumerWidget {
               sessionId: sessionId,
               session: session,
               isSaving: state.isSaving,
+              canEditRemarks: canEditItemRemarks,
+              onEditRemarks: (item) => _editRemarks(
+                context: context,
+                title: 'Edit returned item remarks',
+                initialValue: item.remarks,
+                onSave: (remarks) => ref
+                    .read(returnDetailProvider(sessionId).notifier)
+                    .updateItemRemarks(item.id, remarks),
+              ),
             ),
 
             // ── Usage / invoice report (after reconciliation) ──────────────
             if (session.reconciliation != null &&
                 session.reconciliation!.items.isNotEmpty) ...[
               const SizedBox(height: AppDimensions.spaceLg),
-              _ReconciliationSection(items: session.reconciliation!.items),
+              _ReconciliationSection(
+                items: session.reconciliation!.items,
+                canEditRemarks: canEditReconciliationRemarks,
+                onEditItemRemarks: (item) => _editRemarks(
+                  context: context,
+                  title: 'Edit usage item remarks',
+                  initialValue: item.remarks,
+                  onSave: (remarks) => ref
+                      .read(returnDetailProvider(sessionId).notifier)
+                      .updateReconciliationItemRemarks(
+                        session.reconciliation!.id,
+                        item.id,
+                        remarks,
+                      ),
+                ),
+                onEditComponentRemarks: (item, component) => _editRemarks(
+                  context: context,
+                  title: 'Edit component remarks',
+                  initialValue: component.remarks,
+                  onSave: (remarks) => ref
+                      .read(returnDetailProvider(sessionId).notifier)
+                      .updateReconciliationComponentRemarks(
+                        session.reconciliation!.id,
+                        item.id,
+                        component.id,
+                        remarks,
+                      ),
+                ),
+              ),
             ],
 
             // ── Error banner ───────────────────────────────────────────────
@@ -185,6 +227,48 @@ class ReturnDetailScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Return session completed.')),
       );
+    }
+  }
+
+  Future<void> _editRemarks({
+    required BuildContext context,
+    required String title,
+    required String? initialValue,
+    required Future<bool> Function(String? remarks) onSave,
+  }) async {
+    final controller = TextEditingController(text: initialValue ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          maxLength: 1000,
+          decoration: const InputDecoration(hintText: 'Optional remarks'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final success = await onSave(controller.text);
+              if (dialogContext.mounted && success) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Remarks saved.')));
     }
   }
 
@@ -350,11 +434,15 @@ class _ItemsSection extends ConsumerWidget {
     required this.sessionId,
     required this.session,
     required this.isSaving,
+    required this.canEditRemarks,
+    this.onEditRemarks,
   });
 
   final int sessionId;
   final ReturnSessionModel session;
   final bool isSaving;
+  final bool canEditRemarks;
+  final ValueChanged<ReturnSessionItem>? onEditRemarks;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -413,6 +501,9 @@ class _ItemsSection extends ConsumerWidget {
               onDelete: !session.isReadOnly
                   ? () => _confirmDelete(context, ref, item)
                   : null,
+              onEditRemarks: canEditRemarks
+                  ? () => onEditRemarks?.call(item)
+                  : null,
             ),
           ),
       ],
@@ -459,12 +550,14 @@ class _ItemTile extends StatelessWidget {
     required this.isDraft,
     required this.isSaving,
     this.onDelete,
+    this.onEditRemarks,
   });
 
   final ReturnSessionItem item;
   final bool isDraft;
   final bool isSaving;
   final VoidCallback? onDelete;
+  final VoidCallback? onEditRemarks;
 
   @override
   Widget build(BuildContext context) {
@@ -516,6 +609,12 @@ class _ItemTile extends StatelessWidget {
                   Icons.swipe_left_rounded,
                   size: 14,
                   color: AppColors.textMuted,
+                ),
+              if (onEditRemarks != null)
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Edit remarks',
+                  onPressed: isSaving ? null : onEditRemarks,
                 ),
             ],
           ),
@@ -673,8 +772,20 @@ class _ReopenActionCard extends StatelessWidget {
 // ── Reconciliation / Usage report section ─────────────────────────────────────
 
 class _ReconciliationSection extends StatelessWidget {
-  const _ReconciliationSection({required this.items});
+  const _ReconciliationSection({
+    required this.items,
+    required this.canEditRemarks,
+    this.onEditItemRemarks,
+    this.onEditComponentRemarks,
+  });
   final List<ReconciliationItem> items;
+  final bool canEditRemarks;
+  final ValueChanged<ReconciliationItem>? onEditItemRemarks;
+  final void Function(
+    ReconciliationItem item,
+    ReconciliationInstrumentResult component,
+  )?
+  onEditComponentRemarks;
 
   @override
   Widget build(BuildContext context) {
@@ -683,15 +794,34 @@ class _ReconciliationSection extends StatelessWidget {
       children: [
         SectionHeader(title: 'Usage / Invoice Report', count: items.length),
         const SizedBox(height: AppDimensions.spaceSm),
-        ...items.map((item) => _ReconciliationTile(item: item)),
+        ...items.map(
+          (item) => _ReconciliationTile(
+            item: item,
+            canEditRemarks: canEditRemarks,
+            onEditItemRemarks: onEditItemRemarks == null
+                ? null
+                : () => onEditItemRemarks!(item),
+            onEditComponentRemarks: onEditComponentRemarks == null
+                ? null
+                : (component) => onEditComponentRemarks!(item, component),
+          ),
+        ),
       ],
     );
   }
 }
 
 class _ReconciliationTile extends StatelessWidget {
-  const _ReconciliationTile({required this.item});
+  const _ReconciliationTile({
+    required this.item,
+    required this.canEditRemarks,
+    this.onEditItemRemarks,
+    this.onEditComponentRemarks,
+  });
   final ReconciliationItem item;
+  final bool canEditRemarks;
+  final VoidCallback? onEditItemRemarks;
+  final ValueChanged<ReconciliationInstrumentResult>? onEditComponentRemarks;
 
   @override
   Widget build(BuildContext context) {
@@ -701,11 +831,26 @@ class _ReconciliationTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              item.productName ?? item.lotNumber ?? '#${item.id}',
-              style: AppTextStyles.bodyMedium.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.productName ??
+                        item.instrumentSetName ??
+                        item.lotNumber ??
+                        '#${item.id}',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (canEditRemarks && onEditItemRemarks != null)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit remarks',
+                    onPressed: onEditItemRemarks,
+                  ),
+              ],
             ),
             if (item.refNum != null) ...[
               const SizedBox(height: 2),
@@ -718,6 +863,14 @@ class _ReconciliationTile extends StatelessWidget {
             ],
             const SizedBox(height: 6),
             if (item.lotNumber != null) _kv('Lot', item.lotNumber!),
+            if (item.instrumentResults.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              ...item.instrumentResults.map(
+                (component) => _componentRow(component),
+              ),
+            ],
+            if (item.result != null) _kv('Result', item.result!),
+            if (item.remarks?.isNotEmpty == true) _kv('Remarks', item.remarks!),
             if (item.totalConsigned != null)
               _kv('Consigned', '${item.totalConsigned}'),
             if (item.totalReturned != null)
@@ -751,6 +904,42 @@ class _ReconciliationTile extends StatelessWidget {
             ),
           ),
           Expanded(child: Text(v, style: AppTextStyles.bodySmall)),
+        ],
+      ),
+    );
+  }
+
+  Widget _componentRow(ReconciliationInstrumentResult component) {
+    final quantities = [
+      if (component.expectedQuantity != null)
+        'Expected: ${component.expectedQuantity}',
+      if (component.returnedQuantity != null)
+        'Returned: ${component.returnedQuantity}',
+      if (component.usedQuantity != null) 'Used: ${component.usedQuantity}',
+      if ((component.missingQuantity ?? 0) > 0)
+        'Missing: ${component.missingQuantity}',
+      if ((component.damagedQuantity ?? 0) > 0)
+        'Damaged: ${component.damagedQuantity}',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              '${component.productName ?? 'Component'}\nLots: ${component.lotNumbers.isEmpty ? '-' : component.lotNumbers.join(', ')}${quantities.isEmpty ? '' : '\n${quantities.join(' · ')}'}${component.remarks?.isNotEmpty == true ? '\nRemarks: ${component.remarks}' : ''}',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+          if (canEditRemarks && onEditComponentRemarks != null)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              tooltip: 'Edit component remarks',
+              onPressed: () => onEditComponentRemarks!(component),
+            ),
         ],
       ),
     );

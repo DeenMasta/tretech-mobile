@@ -147,6 +147,57 @@ class ReturnSessionItem {
 
 // ── Reconciliation items (usage / invoice report) ────────────────────────
 
+class ReconciliationInstrumentResult {
+  const ReconciliationInstrumentResult({
+    required this.id,
+    required this.productId,
+    this.productName,
+    this.refNum,
+    this.lotNumbers = const [],
+    this.expectedQuantity,
+    this.returnedQuantity,
+    this.usedQuantity,
+    this.missingQuantity,
+    this.damagedQuantity,
+    this.result,
+    this.remarks,
+  });
+
+  factory ReconciliationInstrumentResult.fromJson(Map<String, dynamic> json) {
+    final product = json['product'] as Map<String, dynamic>?;
+    return ReconciliationInstrumentResult(
+      id: (json['id'] as num).toInt(),
+      productId: (json['product_id'] as num).toInt(),
+      productName: product?['product_name']?.toString(),
+      refNum: product?['ref_num']?.toString(),
+      lotNumbers: (json['lot_numbers'] as List<dynamic>? ?? const [])
+          .map((lotNumber) => lotNumber.toString())
+          .where((lotNumber) => lotNumber.isNotEmpty)
+          .toList(),
+      expectedQuantity: (json['expected_quantity'] as num?)?.toInt(),
+      returnedQuantity: (json['returned_quantity'] as num?)?.toInt(),
+      usedQuantity: (json['used_quantity'] as num?)?.toInt(),
+      missingQuantity: (json['missing_quantity'] as num?)?.toInt(),
+      damagedQuantity: (json['damaged_quantity'] as num?)?.toInt(),
+      result: json['result']?.toString(),
+      remarks: json['remarks']?.toString(),
+    );
+  }
+
+  final int id;
+  final int productId;
+  final String? productName;
+  final String? refNum;
+  final List<String> lotNumbers;
+  final int? expectedQuantity;
+  final int? returnedQuantity;
+  final int? usedQuantity;
+  final int? missingQuantity;
+  final int? damagedQuantity;
+  final String? result;
+  final String? remarks;
+}
+
 class ReconciliationItem {
   const ReconciliationItem({
     required this.id,
@@ -159,22 +210,37 @@ class ReconciliationItem {
     this.totalDamaged,
     this.totalMissing,
     this.invoiceQuantity,
+    this.instrumentResults = const [],
+    this.instrumentSetName,
+    this.result,
+    this.remarks,
   });
 
   factory ReconciliationItem.fromJson(Map<String, dynamic> json) {
     final product = json['product'] as Map<String, dynamic>?;
     final lot = json['lot'] as Map<String, dynamic>?;
+    final lotProduct = lot?['product'] as Map<String, dynamic>?;
+    final instrumentSet = json['instrument_set'] as Map<String, dynamic>?;
     return ReconciliationItem(
       id: (json['id'] as num).toInt(),
       lotNumber: (lot?['lot_number'] ?? json['lot_number'])?.toString(),
-      productName: product?['product_name']?.toString(),
-      refNum: product?['ref_num']?.toString(),
+      productName: (product?['product_name'] ?? lotProduct?['product_name'])
+          ?.toString(),
+      refNum: (product?['ref_num'] ?? lotProduct?['ref_num'])?.toString(),
       totalConsigned: (json['total_consigned'] as num?)?.toInt(),
       totalReturned: (json['total_returned'] as num?)?.toInt(),
       totalUsed: (json['total_used'] as num?)?.toInt(),
       totalDamaged: (json['total_damaged'] as num?)?.toInt(),
       totalMissing: (json['total_missing'] as num?)?.toInt(),
       invoiceQuantity: (json['invoice_quantity'] as num?)?.toInt(),
+      instrumentResults:
+          (json['instrument_results'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map(ReconciliationInstrumentResult.fromJson)
+              .toList(),
+      instrumentSetName: instrumentSet?['set_name']?.toString(),
+      result: json['result']?.toString(),
+      remarks: json['remarks']?.toString(),
     );
   }
 
@@ -188,6 +254,10 @@ class ReconciliationItem {
   final int? totalDamaged;
   final int? totalMissing;
   final int? invoiceQuantity;
+  final List<ReconciliationInstrumentResult> instrumentResults;
+  final String? instrumentSetName;
+  final String? result;
+  final String? remarks;
 }
 
 class ReconciliationBrief {

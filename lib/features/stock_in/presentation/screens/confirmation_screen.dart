@@ -10,6 +10,7 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/status_banner.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/models/lot_model.dart';
 import '../../data/repositories/qr_print_repository.dart';
@@ -25,6 +26,26 @@ class ConfirmationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canView =
+        ref.watch(currentUserProvider)?.permissions.contains('stock_in.view') ??
+        false;
+
+    if (!canView) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.sidebarBg,
+          title: Text('Finalize result', style: AppTextStyles.titleMedium),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.spaceLg),
+            child: Text('You do not have permission to view Stock In.'),
+          ),
+        ),
+      );
+    }
+
     final state = ref.watch(stockInSessionControllerProvider(sessionId));
     final session = state.session;
     final result = state.finalizeResult;
@@ -259,17 +280,22 @@ class _LotCardState extends ConsumerState<_LotCard> {
               ),
             ),
             title: Text(
-              lot.lotNumber,
+              lot.productLabel,
               style: AppTextStyles.bodyMedium.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
             subtitle: Text(
               [
+                lot.lotNumber,
                 if (lot.supplierBatchCode != null)
                   'Batch ${lot.supplierBatchCode}',
+                if (lot.manufacturingDate != null)
+                  'Mfg ${lot.manufacturingDate!.toIso8601String().substring(0, 10)}',
                 if (lot.expiryDate != null)
                   'Exp ${lot.expiryDate!.toIso8601String().substring(0, 10)}',
+                'Qty ${lot.displayedQuantity}',
+                lot.isSystemGeneratedLot ? 'System generated' : 'Captured',
                 lot.status,
               ].join(' • '),
               style: AppTextStyles.bodySmall,

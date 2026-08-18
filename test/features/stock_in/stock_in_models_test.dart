@@ -35,6 +35,7 @@ void main() {
       expect(item.productLabel, 'SET-GEN-01 - General Surgery Starter Set');
       expect(item.lotLabel, 'Minted on finalize');
       expect(item.instrumentSet?.items.length, 1);
+      expect(item.instrumentSet?.items.single.instrumentSetItemId, 1);
     });
 
     test('flags product items without scanned lots for auto-generation', () {
@@ -58,9 +59,62 @@ void main() {
       expect(item.willAutoGenerateLot, isTrue);
       expect(item.lotLabel, 'Auto-generate on finalize');
     });
+
+    test('parses set component lot decisions', () {
+      final item = StockInItemModel.fromJson({
+        'id': 14,
+        'stock_in_id': 4,
+        'entry_kind': 'set',
+        'instrument_set_id': 8,
+        'quantity': 1,
+        'component_lots': [
+          {
+            'instrument_set_item_id': 31,
+            'lot_number': 'COMP-LOT-001',
+            'generate_lot_number': false,
+          },
+          {
+            'instrument_set_item_id': 32,
+            'lot_number': null,
+            'generate_lot_number': true,
+          },
+        ],
+      });
+
+      expect(item.componentLots, hasLength(2));
+      expect(item.componentLots.first.instrumentSetItemId, 31);
+      expect(item.componentLots.first.lotNumber, 'COMP-LOT-001');
+      expect(item.componentLots.last.generateLotNumber, isTrue);
+    });
   });
 
   group('LotModel', () {
+    test('parses the full finalized-lot result for display', () {
+      final lot = LotModel.fromJson({
+        'id': 54,
+        'supplier_id': 3,
+        'product_id': 2,
+        'product': {
+          'id': 2,
+          'ref_num': 'PRD-002',
+          'product_name': 'Suture Pack',
+        },
+        'lot_number': 'LOT-2026-001',
+        'manufacturing_date': '2026-01-01',
+        'expiry_date': '2028-01-01',
+        'quantity': 8,
+        'quantity_available': 6,
+        'is_system_generated_lot': true,
+        'status': 'available',
+      });
+
+      expect(lot.productLabel, 'PRD-002 - Suture Pack');
+      expect(lot.manufacturingDate, DateTime(2026, 1, 1));
+      expect(lot.expiryDate, DateTime(2028, 1, 1));
+      expect(lot.displayedQuantity, 6);
+      expect(lot.isSystemGeneratedLot, isTrue);
+    });
+
     test('parses finalized set lots with nullable product ids', () {
       final lot = LotModel.fromJson({
         'id': 55,

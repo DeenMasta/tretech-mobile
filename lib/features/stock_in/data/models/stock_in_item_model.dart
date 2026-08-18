@@ -40,6 +40,31 @@ class StockInItemLotBrief {
   final String? status;
 }
 
+class StockInComponentLotDecision {
+  const StockInComponentLotDecision({
+    required this.instrumentSetItemId,
+    this.lotNumber,
+    required this.generateLotNumber,
+  });
+
+  factory StockInComponentLotDecision.fromJson(Map<String, dynamic> json) =>
+      StockInComponentLotDecision(
+        instrumentSetItemId: (json['instrument_set_item_id'] as num).toInt(),
+        lotNumber: json['lot_number']?.toString(),
+        generateLotNumber: (json['generate_lot_number'] as bool?) ?? false,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'instrument_set_item_id': instrumentSetItemId,
+    'lot_number': lotNumber,
+    'generate_lot_number': generateLotNumber,
+  };
+
+  final int instrumentSetItemId;
+  final String? lotNumber;
+  final bool generateLotNumber;
+}
+
 enum StockInEntryKind { product, set }
 
 extension StockInEntryKindX on StockInEntryKind {
@@ -92,6 +117,8 @@ class StockInItemModel {
     this.lotEntryMode = LotEntryMode.scan,
     this.expiryEntryMode = LotEntryMode.scan,
     this.missingLotFlag = false,
+    this.generateLotNumber = false,
+    this.componentLots = const [],
     this.sourceBarcode,
     this.entryOverrideReason,
     this.remarks,
@@ -133,6 +160,11 @@ class StockInItemModel {
         json['expiry_entry_mode'] as String?,
       ),
       missingLotFlag: (json['missing_lot_flag'] as bool?) ?? false,
+      generateLotNumber: (json['generate_lot_number'] as bool?) ?? false,
+      componentLots: (json['component_lots'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(StockInComponentLotDecision.fromJson)
+          .toList(),
       sourceBarcode: json['source_barcode'] as String?,
       entryOverrideReason: json['entry_override_reason'] as String?,
       remarks: json['remarks'] as String?,
@@ -159,6 +191,8 @@ class StockInItemModel {
   final LotEntryMode lotEntryMode;
   final LotEntryMode expiryEntryMode;
   final bool missingLotFlag;
+  final bool generateLotNumber;
+  final List<StockInComponentLotDecision> componentLots;
   final String? sourceBarcode;
   final String? entryOverrideReason;
   final String? remarks;

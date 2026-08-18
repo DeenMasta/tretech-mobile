@@ -26,6 +26,26 @@ class StockInDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final permissions =
+        ref.watch(currentUserProvider)?.permissions ?? const <String>[];
+    final canView = permissions.contains('stock_in.view');
+
+    if (!canView) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.sidebarBg,
+          title: Text('Stock-in session', style: AppTextStyles.titleMedium),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.spaceLg),
+            child: Text('You do not have permission to view Stock In.'),
+          ),
+        ),
+      );
+    }
+
     final state = ref.watch(stockInSessionControllerProvider(sessionId));
     final session = state.session;
 
@@ -58,15 +78,13 @@ class StockInDetailScreen extends ConsumerWidget {
 
     final isDraft = session.isDraft;
     final items = state.items;
-    final canFinalize = isDraft && items.isNotEmpty && !state.isSaving;
+    final canCapture = isDraft && permissions.contains('stock_in.edit_draft');
+    final canFinalize =
+        isDraft &&
+        items.isNotEmpty &&
+        !state.isSaving &&
+        permissions.contains('stock_in.confirm');
     final holdingCount = items.where((item) => item.missingLotFlag).length;
-    final canCorrectFinalized =
-        !isDraft &&
-        (ref
-                .watch(currentUserProvider)
-                ?.permissions
-                .contains('stock_in.correct_confirmed') ??
-            false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -79,13 +97,6 @@ class StockInDetailScreen extends ConsumerWidget {
         ),
         title: Text(session.sessionNo, style: AppTextStyles.titleMedium),
         actions: [
-          if (isDraft)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Edit session',
-              onPressed: () =>
-                  context.push(RouteNames.stockInEditPath(sessionId)),
-            ),
           if (session.isConfirmed && items.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.print_rounded),
@@ -118,8 +129,7 @@ class StockInDetailScreen extends ConsumerWidget {
               sessionId: sessionId,
               items: items,
               isDraft: isDraft,
-              isSaving: state.isSaving,
-              canCorrectFinalized: canCorrectFinalized,
+              canAddItems: canCapture,
             ),
             if (state.error != null) ...[
               const SizedBox(height: AppDimensions.spaceMd),
@@ -260,15 +270,13 @@ class _ItemsSection extends ConsumerWidget {
     required this.sessionId,
     required this.items,
     required this.isDraft,
-    required this.isSaving,
-    required this.canCorrectFinalized,
+    required this.canAddItems,
   });
 
   final int sessionId;
   final List<StockInItemModel> items;
   final bool isDraft;
-  final bool isSaving;
-  final bool canCorrectFinalized;
+  final bool canAddItems;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -281,7 +289,7 @@ class _ItemsSection extends ConsumerWidget {
           title: 'Items',
           count: items.length,
           metaText: missingLotCount > 0 ? '$missingLotCount missing lot' : null,
-          trailing: isDraft
+          trailing: canAddItems
               ? AppButton(
                   label: 'Add item',
                   icon: Icons.add_rounded,
@@ -323,57 +331,9 @@ class _ItemsSection extends ConsumerWidget {
             ),
           )
         else
-          ...items.map(
-            (item) => _ItemTile(
-              item: item,
-              isDraft: isDraft,
-              isSaving: isSaving,
-              onEdit: isDraft
-                  ? () => context.push(
-                      RouteNames.stockInItemEditPath(sessionId, item.id),
-                    )
-                  : null,
-              onDelete: isDraft
-                  ? () => _confirmDelete(context, ref, item)
-                  : null,
-              onCorrect: canCorrectFinalized
-                  ? () => context.push(
-                      RouteNames.stockInItemCorrectPath(sessionId, item.id),
-                    )
-                  : null,
-            ),
-          ),
+          ...items.map((item) => _ItemTile(item: item)),
       ],
     );
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    StockInItemModel item,
-  ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove item?'),
-        content: Text('Remove ${item.productLabel} from this draft session?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await ref
-        .read(stockInSessionControllerProvider(sessionId).notifier)
-        .removeItem(item.id);
   }
 }
 
@@ -425,126 +385,85 @@ class _FinalizeActionCard extends StatelessWidget {
 }
 
 class _ItemTile extends StatelessWidget {
-  const _ItemTile({
-    required this.item,
-    required this.isDraft,
-    required this.isSaving,
-    this.onEdit,
-    this.onDelete,
-    this.onCorrect,
-  });
+  const _ItemTile({required this.item});
 
   final StockInItemModel item;
-  final bool isDraft;
-  final bool isSaving;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-  final VoidCallback? onCorrect;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimensions.spaceSm),
-      child: isDraft
-          ? Dismissible(
-              key: ValueKey(item.id),
-              direction: DismissDirection.endToStart,
-              confirmDismiss: (_) async {
-                onDelete?.call();
-                return false; // let the dialog handle actual deletion
-              },
-              background: Container(
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: AppDimensions.spaceLg),
-                decoration: BoxDecoration(
-                  color: AppColors.errorContainer,
-                  borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-                ),
-                child: Icon(
-                  Icons.delete_outline_rounded,
-                  color: AppColors.error,
-                ),
-              ),
-              child: _cardContent(context),
-            )
-          : _cardContent(context),
+      child: _cardContent(),
     );
   }
 
-  Widget _cardContent(BuildContext context) {
-    return InkWell(
-      onTap: onEdit,
-      borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-      child: ContentCard(
-        borderColor: item.missingLotFlag
-            ? AppColors.warning.withValues(alpha: 0.4)
-            : AppColors.border,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product name row
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    item.productLabel,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+  Widget _cardContent() {
+    return ContentCard(
+      borderColor: item.missingLotFlag
+          ? AppColors.warning.withValues(alpha: 0.4)
+          : AppColors.border,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Product name row
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.productLabel,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (isDraft)
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: AppColors.textMuted,
-                  ),
-                if (!isDraft && onCorrect != null)
-                  Icon(
-                    Icons.verified_outlined,
-                    size: 18,
-                    color: AppColors.info,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            _kv(
-              item.isSetEntry ? 'Kind' : 'Lot',
-              item.isSetEntry ? item.entryKindLabel : item.lotLabel,
-            ),
-            _kv('Qty', '${item.quantity ?? 1}'),
-            _kv('Mfg date', item.manufacturingDateLabel),
-            if (item.expiryDate != null)
-              _kv('Expiry', DateFormatter.toDisplay(item.expiryDate!)),
-            if (item.isSetEntry &&
-                (item.instrumentSet?.items.isNotEmpty ?? false)) ...[
-              const SizedBox(height: 6),
-              ...item.instrumentSet!.items
-                  .take(5)
-                  .map(
-                    (component) => Text(
-                      '${component.name}${component.code?.trim().isNotEmpty == true ? ' (${component.code})' : ''} x ${component.quantity}',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ),
+              ),
             ],
-            // Capture type and exceptions.
+          ),
+          const SizedBox(height: 6),
+          _kv(
+            item.isSetEntry ? 'Kind' : 'Lot',
+            item.isSetEntry ? item.entryKindLabel : item.lotLabel,
+          ),
+          _kv('Qty', '${item.quantity ?? 1}'),
+          _kv('Mfg date', item.manufacturingDateLabel),
+          if (item.expiryDate != null)
+            _kv('Expiry', DateFormatter.toDisplay(item.expiryDate!)),
+          if (item.isSetEntry &&
+              (item.instrumentSet?.items.isNotEmpty ?? false)) ...[
             const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              children: [
-                  _badge(
-                    item.isSetEntry ? 'Set entry' : 'Product entry',
-                    AppColors.textMuted,
-                  ),
-                  if (item.missingLotFlag)
-                    _badge('Missing lot', AppColors.warning),
-              ],
-            ),
+            ...item.instrumentSet!.items.map((component) {
+              final decision = item.componentLots
+                  .where(
+                    (lot) =>
+                        lot.instrumentSetItemId ==
+                        component.instrumentSetItemId,
+                  )
+                  .firstOrNull;
+              final lotLabel = decision == null
+                  ? null
+                  : decision.generateLotNumber
+                  ? 'Generated lot'
+                  : decision.lotNumber;
+              return Text(
+                '${component.name}${component.code?.trim().isNotEmpty == true ? ' (${component.code})' : ''} x ${component.quantity}${lotLabel?.isNotEmpty == true ? ' — $lotLabel' : ''}',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              );
+            }),
           ],
-        ),
+          // Capture type and exceptions.
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            children: [
+              _badge(
+                item.isSetEntry ? 'Set entry' : 'Product entry',
+                AppColors.textMuted,
+              ),
+              if (item.missingLotFlag) _badge('Missing lot', AppColors.warning),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/supplier_model.dart';
 import '../../data/models/stock_in_session_model.dart';
 import '../../data/repositories/master_data_repository.dart';
@@ -67,6 +68,26 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(stockInListFilterProvider);
+    final user = ref.watch(currentUserProvider);
+    final canView = user?.permissions.contains('stock_in.view') ?? false;
+    final canCreate = user?.permissions.contains('stock_in.create') ?? false;
+
+    if (!canView) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.sidebarBg,
+          title: Text('Stock In', style: AppTextStyles.titleMedium),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.spaceLg),
+            child: Text('You do not have permission to view Stock In.'),
+          ),
+        ),
+      );
+    }
+
     final pageAsync = ref.watch(stockInListProvider(filter));
 
     if (_searchCtl.text != filter.search) {
@@ -86,21 +107,23 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
         ),
         title: Text('Stock In', style: AppTextStyles.titleMedium),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'stock-in-create-session-fab',
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF09090B),
-        elevation: 3,
-        icon: const Icon(Icons.add_rounded, color: Color(0xFF09090B)),
-        label: Text(
-          'Create session',
-          style: AppTextStyles.labelLarge.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF09090B),
-          ),
-        ),
-        onPressed: () => context.push(RouteNames.stockInCreate),
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              heroTag: 'stock-in-create-session-fab',
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF09090B),
+              elevation: 3,
+              icon: const Icon(Icons.add_rounded, color: Color(0xFF09090B)),
+              label: Text(
+                'Create session',
+                style: AppTextStyles.labelLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF09090B),
+                ),
+              ),
+              onPressed: () => context.push(RouteNames.stockInCreate),
+            )
+          : null,
       body: Column(
         children: [
           Container(
@@ -139,7 +162,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
                 message: e.toString(),
                 onRetry: () => ref.invalidate(stockInListProvider(filter)),
               ),
-              data: (page) => _buildListBody(page, filter),
+              data: (page) => _buildListBody(page, filter, canCreate),
             ),
           ),
         ],
@@ -308,9 +331,13 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
     );
   }
 
-  Widget _buildListBody(StockInSessionPage page, StockInListFilter filter) {
+  Widget _buildListBody(
+    StockInSessionPage page,
+    StockInListFilter filter,
+    bool canCreate,
+  ) {
     if (page.items.isEmpty) {
-      return _buildEmpty();
+      return _buildEmpty(canCreate);
     }
 
     return RefreshIndicator(
@@ -377,7 +404,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
     );
   }
 
-  Widget _buildEmpty() {
+  Widget _buildEmpty(bool canCreate) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.space3xl),
@@ -407,12 +434,13 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
               style: AppTextStyles.bodySmall,
             ),
             const SizedBox(height: AppDimensions.spaceXxl),
-            AppButton(
-              label: 'Create session',
-              icon: Icons.add_rounded,
-              isFullWidth: false,
-              onPressed: () => context.push(RouteNames.stockInCreate),
-            ),
+            if (canCreate)
+              AppButton(
+                label: 'Create session',
+                icon: Icons.add_rounded,
+                isFullWidth: false,
+                onPressed: () => context.push(RouteNames.stockInCreate),
+              ),
           ],
         ),
       ),

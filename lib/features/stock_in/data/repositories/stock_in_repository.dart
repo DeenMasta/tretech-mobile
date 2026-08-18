@@ -209,6 +209,8 @@ class StockInRepository {
     LotEntryMode lotEntryMode = LotEntryMode.scan,
     LotEntryMode expiryEntryMode = LotEntryMode.scan,
     bool missingLotFlag = false,
+    bool generateLotNumber = false,
+    List<StockInComponentLotDecision> componentLots = const [],
     String? sourceBarcode,
     String? entryOverrideReason,
     String? remarks,
@@ -226,6 +228,12 @@ class StockInRepository {
           'expiry_entry_mode': expiryEntryMode.apiValue,
         if (entryKind == StockInEntryKind.product)
           'missing_lot_flag': missingLotFlag,
+        if (entryKind == StockInEntryKind.product)
+          'generate_lot_number': generateLotNumber,
+        if (entryKind == StockInEntryKind.set)
+          'component_lots': componentLots
+              .map((decision) => decision.toJson())
+              .toList(),
         'quantity': quantity,
       };
       if (entryKind == StockInEntryKind.product &&
@@ -278,6 +286,8 @@ class StockInRepository {
     LotEntryMode? lotEntryMode,
     LotEntryMode? expiryEntryMode,
     bool? missingLotFlag,
+    bool? generateLotNumber,
+    List<StockInComponentLotDecision>? componentLots,
     String? entryOverrideReason,
     String? remarks,
   }) async {
@@ -288,6 +298,14 @@ class StockInRepository {
         payload['instrument_set_id'] = instrumentSetId;
       }
       if (missingLotFlag != null) payload['missing_lot_flag'] = missingLotFlag;
+      if (generateLotNumber != null) {
+        payload['generate_lot_number'] = generateLotNumber;
+      }
+      if (componentLots != null) {
+        payload['component_lots'] = componentLots
+            .map((decision) => decision.toJson())
+            .toList();
+      }
       if (lotEntryMode != null) {
         payload['lot_entry_mode'] = lotEntryMode.apiValue;
       }
