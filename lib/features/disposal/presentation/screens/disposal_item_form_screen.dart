@@ -52,8 +52,11 @@ class _DisposalItemFormScreenState
     super.initState();
     _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
       if (!mounted) return;
-      _lotCtl.text = data.toString();
-      if (!_isScanning) setState(() => _isScanning = true);
+      setState(() {
+        _lotCtl.text = data.toString();
+        _lot = null;
+        _isScanning = true;
+      });
       _findLot();
     });
   }
@@ -434,6 +437,17 @@ class _DisposalItemFormScreenState
       );
       if (!mounted) return;
       final usedIds = existing.map((item) => item.lotId).toSet();
+      final scannedLot = results.items
+          .where((lot) => lot.lotNumber.toLowerCase() == query.toLowerCase())
+          .firstOrNull;
+      if (scannedLot != null && usedIds.contains(scannedLot.id)) {
+        setState(() {
+          _lot = null;
+          _isScanning = false;
+        });
+        _alreadyAdded(scannedLot.lotNumber);
+        return;
+      }
       final match = results.items
           .where(
             (lot) =>
@@ -454,6 +468,20 @@ class _DisposalItemFormScreenState
       if (mounted) setState(() => _isScanning = false);
       _error(e);
     }
+  }
+
+  void _alreadyAdded(String lotNumber) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Lot "$lotNumber" has already been added.'),
+        action: SnackBarAction(
+          label: 'VIEW ITEM',
+          onPressed: () =>
+              context.go(RouteNames.disposalDetailPath(widget.disposalId)),
+        ),
+      ),
+    );
   }
 
   void _selectLot(InventoryUnitModel lot) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
@@ -137,11 +138,10 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
               Expanded(
                 child: AppTextField(
                   controller: _search,
-                  hint: 'Search by consignment number',
+                  hint: 'Search by product, ref, lot or QR payload',
                   prefixIcon: Icons.search_rounded,
                   textInputAction: TextInputAction.search,
-                  onSubmitted: (_) =>
-                      _apply(filter.copyWith(search: _search.text.trim())),
+                  onSubmitted: (_) => _applySearch(filter),
                 ),
               ),
               const SizedBox(width: AppDimensions.spaceSm),
@@ -275,6 +275,18 @@ class _ConsignmentScreenState extends ConsumerState<ConsignmentScreen> {
     ),
     child: Text(label, style: AppTextStyles.labelSmall),
   );
+
+  void _applySearch(ConsignmentFilter filter) {
+    final search = QrPayloadParser.lotNumberOrRaw(_search.text);
+    if (_search.text != search) {
+      _search.value = TextEditingValue(
+        text: search,
+        selection: TextSelection.collapsed(offset: search.length),
+      );
+    }
+    _apply(filter.copyWith(search: search));
+  }
+
   void _apply(ConsignmentFilter value) {
     final current = ref.read(consignmentFilterProvider);
     final filtersChanged =

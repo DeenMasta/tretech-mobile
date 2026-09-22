@@ -51,8 +51,11 @@ class _ConsignmentItemFormScreenState
     _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
       if (!mounted) return;
       final val = data.toString();
-      _lotSearch.text = val;
-      if (!_isScanning) setState(() => _isScanning = true);
+      setState(() {
+        _lotSearch.text = val;
+        _lot = null;
+        _isScanning = true;
+      });
       _findScannedLot();
     });
   }
@@ -379,6 +382,19 @@ class _ConsignmentItemFormScreenState
     );
     if (!mounted) return;
 
+    final scannedLot = options
+        .where((lot) => lot.lotNumber.toLowerCase() == query.toLowerCase())
+        .firstOrNull;
+    if (scannedLot != null &&
+        existing.any((item) => item.lot?.id == scannedLot.id)) {
+      setState(() {
+        _lot = null;
+        _isScanning = false;
+      });
+      _alreadyAdded(scannedLot.lotNumber);
+      return;
+    }
+
     final available = options.where((lot) {
       return !existing.any((item) => item.lot?.id == lot.id);
     }).toList();
@@ -397,6 +413,21 @@ class _ConsignmentItemFormScreenState
     }
     setState(() => _isScanning = false);
     _error('No available lot matches "$query". Browse lots to find it.');
+  }
+
+  void _alreadyAdded(String lotNumber) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Lot "$lotNumber" has already been added.'),
+        action: SnackBarAction(
+          label: 'VIEW ITEM',
+          onPressed: () => context.go(
+            RouteNames.consignmentDetailPath(widget.consignmentId),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {

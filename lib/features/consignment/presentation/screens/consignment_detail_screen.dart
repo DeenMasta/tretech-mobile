@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../router/route_names.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
+import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../data/models/consignment_models.dart';
@@ -49,7 +51,18 @@ class ConsignmentDetailScreen extends ConsumerWidget {
             children: [
               _detailCard(consignment),
               const SizedBox(height: AppDimensions.spaceLg),
-              _items(context, ref, consignment, items, permissions),
+              _ConsignmentItemsSection(
+                consignment: consignment,
+                itemsAsync: items,
+                permissions: permissions,
+                itemBuilder: (context, ref, item) => _itemCard(
+                  context,
+                  ref,
+                  consignment,
+                  item,
+                  canEdit: permissions.contains('consignments.edit_draft'),
+                ),
+              ),
               const SizedBox(height: 88),
             ],
           ),
@@ -190,86 +203,210 @@ class ConsignmentDetailScreen extends ConsumerWidget {
       ],
     ),
   );
+}
 
-  Widget _items(
-    BuildContext context,
-    WidgetRef ref,
-    ConsignmentModel c,
-    AsyncValue<List<ConsignmentItem>> data,
-    List<String> permissions,
-  ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SectionHeader(
-        title: 'Items',
-        count: c.itemsCount,
-        trailing: c.isDraft && permissions.contains('consignments.edit_draft')
-            ? AppButton(
-                label: 'Add item',
-                icon: Icons.add_rounded,
-                size: AppButtonSize.sm,
-                isFullWidth: false,
-                onPressed: () =>
-                    context.push(RouteNames.consignmentItemAddPath(c.id)),
-              )
-            : null,
+class _ConsignmentItemsSection extends ConsumerStatefulWidget {
+  const _ConsignmentItemsSection({
+    required this.consignment,
+    required this.itemsAsync,
+    required this.permissions,
+    required this.itemBuilder,
+  });
+
+  final ConsignmentModel consignment;
+  final AsyncValue<List<ConsignmentItem>> itemsAsync;
+  final List<String> permissions;
+  final Widget Function(BuildContext, WidgetRef, ConsignmentItem) itemBuilder;
+
+  @override
+  ConsumerState<_ConsignmentItemsSection> createState() =>
+      _ConsignmentItemsSectionState();
+}
+
+class _ConsignmentItemsSectionState
+    extends ConsumerState<_ConsignmentItemsSection> {
+  late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
+  bool _isSearching = false;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _search = '';
+      }
+    });
+
+    if (_isSearching) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isSearching) {
+          _searchFocusNode.requestFocus();
+        }
+      });
+    }
+  }
+
+  bool _matchesSearch(ConsignmentItem item) {
+    final query = QrPayloadParser.lotNumberOrRaw(_search).toLowerCase();
+    if (query.isEmpty) return true;
+
+    final values = <String?>[
+      item.lot?.productName,
+      item.lot?.refNum,
+      item.lot?.lotNumber,
+      item.instrumentSetName,
+      item.instrumentSetCode,
+      ...item.instrumentSetComponents.expand(
+        (component) => [
+          component.productName,
+          component.refNum,
+          ...component.lotNumbers,
+        ],
       ),
-      const SizedBox(height: AppDimensions.spaceSm),
-      data.when(
-        loading: () => const Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(),
+    ];
+
+    return values.any((value) => value?.toLowerCase().contains(query) ?? false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loadedItems = widget.itemsAsync.asData?.value ?? const [];
+    final canEdit =
+        widget.consignment.isDraft &&
+        widget.permissions.contains('consignments.edit_draft');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Items',
+          count: widget.consignment.itemsCount ?? loadedItems.length,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canEdit) ...[
+                AppButton(
+                  label: 'Add item',
+                  icon: Icons.add_rounded,
+                  size: AppButtonSize.sm,
+                  isFullWidth: false,
+                  onPressed: () => context.push(
+                    RouteNames.consignmentItemAddPath(widget.consignment.id),
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spaceXs),
+              ],
+              if (loadedItems.isNotEmpty)
+                IconButton(
+                  tooltip: _isSearching ? 'Close item search' : 'Search items',
+                  onPressed: _toggleSearch,
+                  icon: Icon(
+                    _isSearching ? Icons.close_rounded : Icons.search_rounded,
+                  ),
+                ),
+            ],
           ),
         ),
-        error: (e, _) => AppErrorWidget(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(consignmentItemsProvider(c.id)),
-        ),
-        data: (items) => Column(
-          children: [
-            if (items.isEmpty)
-              ContentCard(
-                padding: const EdgeInsets.all(AppDimensions.space3xl),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.inventory_2_outlined,
-                        size: 40,
-                        color: AppColors.textMuted,
+        if (_isSearching) ...[
+          const SizedBox(height: AppDimensions.spaceSm),
+          AppTextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            hint: 'Search by product, ref, lot or QR payload',
+            prefixIcon: Icons.search_rounded,
+            suffixIcon: Icons.close_rounded,
+            onChanged: (value) => setState(() => _search = value),
+            onSuffixIconTap: _toggleSearch,
+          ),
+        ],
+        const SizedBox(height: AppDimensions.spaceSm),
+        widget.itemsAsync.when(
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (e, _) => AppErrorWidget(
+            message: e.toString(),
+            onRetry: () =>
+                ref.invalidate(consignmentItemsProvider(widget.consignment.id)),
+          ),
+          data: (items) {
+            final filteredItems = items.where(_matchesSearch).toList();
+            return Column(
+              children: [
+                if (items.isEmpty)
+                  ContentCard(
+                    padding: const EdgeInsets.all(AppDimensions.space3xl),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 40,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(height: AppDimensions.spaceMd),
+                          Text(
+                            widget.consignment.isDraft
+                                ? 'No items yet. Tap "Add item" to begin capturing.'
+                                : 'No items in this consignment.',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: AppDimensions.spaceMd),
-                      Text(
-                        c.isDraft
-                            ? 'No items yet. Tap "Add item" to begin capturing.'
-                            : 'No items in this consignment.',
-                        textAlign: TextAlign.center,
+                    ),
+                  )
+                else if (filteredItems.isEmpty)
+                  ContentCard(
+                    padding: const EdgeInsets.all(AppDimensions.space3xl),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        'No items match your search.',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textMuted,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                    ],
+                    ),
+                  )
+                else
+                  ...filteredItems.map(
+                    (item) => widget.itemBuilder(context, ref, item),
                   ),
-                ),
-              )
-            else
-              ...items.map(
-                (item) => _itemCard(
-                  context,
-                  ref,
-                  c,
-                  item,
-                  canEdit: permissions.contains('consignments.edit_draft'),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
+}
+
+extension _ConsignmentDetailScreenActions on ConsignmentDetailScreen {
   Widget _itemCard(
     BuildContext context,
     WidgetRef ref,
@@ -412,12 +549,14 @@ class ConsignmentDetailScreen extends ConsumerWidget {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(labelText: 'Proposed qty'),
             ),
+            const SizedBox(height: AppDimensions.spaceSm),
             TextField(
               controller: quantity,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(labelText: 'Qty out'),
             ),
+            const SizedBox(height: AppDimensions.spaceSm),
             TextField(
               controller: remarks,
               maxLines: 3,

@@ -2,8 +2,8 @@
 abstract final class AppConstants {
   // ── App Info ─────────────────────────────────────────────────
   static const String appName = 'Tretech';
-  static const String appVersion = '1.0.0';
-  static const String appBuild = '1';
+  static const String appVersion = '1.0.1';
+  static const String appBuild = '2';
 
   // ── API ───────────────────────────────────────────────────────
   static const Duration connectTimeout = Duration(seconds: 30);

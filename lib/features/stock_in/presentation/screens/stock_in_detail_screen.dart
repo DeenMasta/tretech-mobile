@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
+import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/status_banner.dart';
@@ -265,7 +267,7 @@ class _SessionCard extends StatelessWidget {
 
 // ── Items section ────────────────────────────────────────────────────────────
 
-class _ItemsSection extends ConsumerWidget {
+class _ItemsSection extends StatefulWidget {
   const _ItemsSection({
     required this.sessionId,
     required this.items,
@@ -279,31 +281,123 @@ class _ItemsSection extends ConsumerWidget {
   final bool canAddItems;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final missingLotCount = items.where((i) => i.missingLotFlag).length;
+  State<_ItemsSection> createState() => _ItemsSectionState();
+}
+
+class _ItemsSectionState extends State<_ItemsSection> {
+  late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
+  bool _isSearching = false;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _search = '';
+      }
+    });
+
+    if (_isSearching) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isSearching) {
+          _searchFocusNode.requestFocus();
+        }
+      });
+    }
+  }
+
+  bool _matchesSearch(StockInItemModel item) {
+    final query = QrPayloadParser.lotNumberOrRaw(_search).toLowerCase();
+    if (query.isEmpty) return true;
+
+    final values = <String?>[
+      item.product?.productName,
+      item.product?.refNum,
+      item.scannedLotNumber,
+      item.lot?.lotNumber,
+      item.instrumentSet?.setName,
+      item.instrumentSet?.setCode,
+      ...?item.instrumentSet?.items.expand(
+        (component) => [component.name, component.code],
+      ),
+      ...item.componentLots.map((componentLot) => componentLot.lotNumber),
+    ];
+
+    return values.any((value) => value?.toLowerCase().contains(query) ?? false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final missingLotCount = widget.items
+        .where((item) => item.missingLotFlag)
+        .length;
+    final filteredItems = widget.items.where(_matchesSearch).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
           title: 'Items',
-          count: items.length,
+          count: widget.items.length,
           metaText: missingLotCount > 0 ? '$missingLotCount missing lot' : null,
-          trailing: canAddItems
-              ? AppButton(
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.canAddItems) ...[
+                AppButton(
                   label: 'Add item',
                   icon: Icons.add_rounded,
                   size: AppButtonSize.sm,
                   isFullWidth: false,
-                  onPressed: () =>
-                      context.push(RouteNames.stockInItemAddPath(sessionId)),
-                )
-              : null,
+                  onPressed: () => context.push(
+                    RouteNames.stockInItemAddPath(widget.sessionId),
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spaceXs),
+              ],
+              if (widget.items.isNotEmpty)
+                IconButton(
+                  tooltip: _isSearching ? 'Close item search' : 'Search items',
+                  onPressed: _toggleSearch,
+                  icon: Icon(
+                    _isSearching ? Icons.close_rounded : Icons.search_rounded,
+                  ),
+                ),
+            ],
+          ),
         ),
+        if (_isSearching) ...[
+          const SizedBox(height: AppDimensions.spaceSm),
+          AppTextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            hint: 'Search by product, ref, lot or QR payload',
+            prefixIcon: Icons.search_rounded,
+            suffixIcon: Icons.close_rounded,
+            onChanged: (value) => setState(() => _search = value),
+            onSuffixIconTap: _toggleSearch,
+          ),
+        ],
         const SizedBox(height: AppDimensions.spaceSm),
 
         // Empty state
-        if (items.isEmpty)
+        if (widget.items.isEmpty)
           ContentCard(
             padding: const EdgeInsets.all(AppDimensions.space3xl),
             child: SizedBox(
@@ -318,7 +412,7 @@ class _ItemsSection extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppDimensions.spaceMd),
                   Text(
-                    isDraft
+                    widget.isDraft
                         ? 'No items yet. Tap "Add item" to begin capturing.'
                         : 'No items in this session.',
                     style: AppTextStyles.bodySmall.copyWith(
@@ -330,8 +424,22 @@ class _ItemsSection extends ConsumerWidget {
               ),
             ),
           )
+        else if (filteredItems.isEmpty)
+          ContentCard(
+            padding: const EdgeInsets.all(AppDimensions.space3xl),
+            child: SizedBox(
+              width: double.infinity,
+              child: Text(
+                'No items match your search.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
         else
-          ...items.map((item) => _ItemTile(item: item)),
+          ...filteredItems.map((item) => _ItemTile(item: item)),
       ],
     );
   }

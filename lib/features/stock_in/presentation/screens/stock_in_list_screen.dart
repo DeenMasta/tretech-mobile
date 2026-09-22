@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
@@ -41,9 +42,14 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
   }
 
   void _applySearch() {
-    ref
-        .read(stockInListFilterProvider.notifier)
-        .setSearch(_searchCtl.text.trim());
+    final search = QrPayloadParser.lotNumberOrRaw(_searchCtl.text);
+    if (_searchCtl.text != search) {
+      _searchCtl.value = TextEditingValue(
+        text: search,
+        selection: TextSelection.collapsed(offset: search.length),
+      );
+    }
+    ref.read(stockInListFilterProvider.notifier).setSearch(search);
   }
 
   Future<void> _openFilters(StockInListFilter filter) async {
@@ -192,7 +198,7 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
               Expanded(
                 child: AppTextField(
                   controller: _searchCtl,
-                  hint: 'Search by session no. or DO number',
+                  hint: 'Search by product, ref, lot or QR payload',
                   prefixIcon: Icons.search_rounded,
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _applySearch(),
@@ -428,7 +434,8 @@ class _StockInListScreenState extends ConsumerState<StockInListScreen> {
               'Create a new session to start receiving incoming stock.',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodySmall,
-            )          ],
+            ),
+          ],
         ),
       ),
     );

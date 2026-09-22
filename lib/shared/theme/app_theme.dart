@@ -123,11 +123,11 @@ abstract final class AppTheme {
     ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppDimensions.inputRadius),
-      borderSide: BorderSide(color: AppColors.border),
+      borderSide: BorderSide(color: AppColors.textSecondary, width: 1.25),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppDimensions.inputRadius),
-      borderSide: BorderSide(color: AppColors.border),
+      borderSide: BorderSide(color: AppColors.textSecondary, width: 1.25),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppDimensions.inputRadius),

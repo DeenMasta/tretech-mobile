@@ -43,7 +43,7 @@ class QrPrintJobState {
 
 /// Drives a batch "print selected lots" workflow:
 /// 1. For each selected lot: POST /print-jobs to get TSPL.
-///    The TSPL print count is set to the stock-in quantity for that lot.
+///    The TSPL print count is set to the user-selected quantity for that lot.
 /// 2. Send TSPL via Bluetooth.
 /// 3. PATCH /print-jobs/{id}/mark-printed or mark-failed.
 class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
@@ -58,8 +58,9 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
   /// [macAddress] — the Bluetooth MAC to print to.
   Future<void> printSelected(
     List<StockInItemModel> items,
-    String macAddress,
-  ) async {
+    String macAddress, {
+    Map<int, int> labelQuantities = const {},
+  }) async {
     // Only items that have a resolved lotId (non-holding, product entries).
     final printable = items
         .where((i) => i.lotId != null && !i.missingLotFlag)
@@ -79,7 +80,7 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
       isPrinting: true,
       total: printable.fold(
         0,
-        (total, item) => total + item.labelPrintQuantity,
+        (total, item) => total + _copiesFor(item, labelQuantities),
       ),
       printed: 0,
     );
@@ -101,7 +102,7 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
       for (final item in printable) {
         final lotId = item.lotId!;
         final label = item.productLabel;
-        final copies = item.labelPrintQuantity;
+        final copies = _copiesFor(item, labelQuantities);
         try {
           // Create print job and get TSPL from backend.
           final job = await _repo.createPrintJob(
@@ -114,7 +115,7 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
           if (tspl == null || tspl.isEmpty) {
             errors.add('$label: No TSPL payload returned from server.');
             await _repo.markFailed(job.id, errorMessage: 'Empty TSPL payload');
-            state = state.copyWith(printed: state.printed + 1);
+            state = state.copyWith(printed: state.printed + copies);
             continue;
           }
 
@@ -175,6 +176,13 @@ class QrPrintNotifier extends StateNotifier<QrPrintJobState> {
   }
 
   void reset() => state = const QrPrintJobState();
+
+  int _copiesFor(StockInItemModel item, Map<int, int> labelQuantities) {
+    final requestedCopies = labelQuantities[item.lotId];
+    return requestedCopies != null && requestedCopies > 0
+        ? requestedCopies
+        : item.labelPrintQuantity;
+  }
 
   /// Replaces the TSPL print command with the required copy count.
   /// TSPL's `PRINT 1,n` prints one label layout `n` times.

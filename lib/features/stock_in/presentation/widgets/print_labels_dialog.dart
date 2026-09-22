@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../router/route_names.dart';
@@ -35,6 +36,7 @@ class PrintLabelsDialog extends ConsumerStatefulWidget {
 class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
   late final List<StockInItemModel> _printable;
   late final Set<int> _selected; // lotId set
+  late final Map<int, int> _labelQuantities; // lotId -> requested copies
 
   @override
   void initState() {
@@ -43,16 +45,20 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
         .where((i) => i.lotId != null && !i.missingLotFlag)
         .toList();
     _selected = _printable.map((i) => i.lotId!).toSet();
+    _labelQuantities = {};
   }
 
   bool get _allSelected => _selected.length == _printable.length;
 
   int get _selectedLabelCount => _printable
       .where((item) => _selected.contains(item.lotId))
-      .fold(0, (total, item) => total + item.labelPrintQuantity);
+      .fold(0, (total, item) => total + _quantityFor(item));
 
   int get _printableLabelCount =>
-      _printable.fold(0, (total, item) => total + item.labelPrintQuantity);
+      _printable.fold(0, (total, item) => total + _quantityFor(item));
+
+  int _quantityFor(StockInItemModel item) =>
+      _labelQuantities[item.lotId] ?? item.labelPrintQuantity;
 
   void _toggleAll() {
     setState(() {
@@ -74,14 +80,39 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
     });
   }
 
-  Future<void> _print(String macAddress) async {
+  Future<void> _print(
+    String macAddress, {
+    required Map<int, int> labelQuantities,
+  }) async {
     final selectedItems = _printable
         .where((i) => _selected.contains(i.lotId))
         .toList();
 
     await ref
         .read(qrPrintNotifierProvider.notifier)
-        .printSelected(selectedItems, macAddress);
+        .printSelected(
+          selectedItems,
+          macAddress,
+          labelQuantities: labelQuantities,
+        );
+  }
+
+  Future<void> _requestPrintQuantities(String macAddress) async {
+    final selectedItems = _printable
+        .where((item) => _selected.contains(item.lotId))
+        .toList();
+    final quantities = await showDialog<Map<int, int>>(
+      context: context,
+      builder: (_) => _LabelQuantityDialog(
+        items: selectedItems,
+        initialQuantities: _labelQuantities,
+      ),
+    );
+
+    if (!mounted || quantities == null) return;
+
+    setState(() => _labelQuantities.addAll(quantities));
+    await _print(macAddress, labelQuantities: quantities);
   }
 
   @override
@@ -221,7 +252,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                         ),
                         const Spacer(),
                         Text(
-                          '$_selectedLabelCount labels selected',
+                          '$_selectedLabelCount labels',
                           style: AppTextStyles.labelSmall.copyWith(
                             color: AppColors.textMuted,
                           ),
@@ -253,7 +284,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                             ),
                           ),
                           subtitle: Text(
-                            '${item.lot?.lotNumber ?? item.scannedLotNumber ?? '—'} · ${item.labelPrintQuantity} label${item.labelPrintQuantity == 1 ? '' : 's'}',
+                            '${item.lot?.lotNumber ?? item.scannedLotNumber ?? '—'} · ${_quantityFor(item)} label${_quantityFor(item) == 1 ? '' : 's'}',
                             style: AppTextStyles.labelSmall.copyWith(
                               color: AppColors.textMuted,
                             ),
@@ -294,14 +325,16 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                               onPressed:
                                   !printer.isConfigured || _printable.isEmpty
                                   ? null
-                                  : () {
+                                  : () async {
                                       // Select all then print
                                       setState(
                                         () => _selected.addAll(
                                           _printable.map((i) => i.lotId!),
                                         ),
                                       );
-                                      _print(printer.macAddress);
+                                      await _requestPrintQuantities(
+                                        printer.macAddress,
+                                      );
                                     },
                             ),
                           ),
@@ -314,7 +347,9 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                               onPressed:
                                   !printer.isConfigured || _selected.isEmpty
                                   ? null
-                                  : () => _print(printer.macAddress),
+                                  : () => _requestPrintQuantities(
+                                      printer.macAddress,
+                                    ),
                             ),
                           ),
                         ],
@@ -411,6 +446,205 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
 }
 
 // ── Progress view ─────────────────────────────────────────────────────────────
+
+class _LabelQuantityDialog extends StatefulWidget {
+  const _LabelQuantityDialog({
+    required this.items,
+    required this.initialQuantities,
+  });
+
+  final List<StockInItemModel> items;
+  final Map<int, int> initialQuantities;
+
+  @override
+  State<_LabelQuantityDialog> createState() => _LabelQuantityDialogState();
+}
+
+class _LabelQuantityDialogState extends State<_LabelQuantityDialog> {
+  late final Map<int, TextEditingController> _controllers;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final item in widget.items)
+        item.lotId!: TextEditingController(
+          text: widget.initialQuantities[item.lotId]?.toString() ?? '',
+        ),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _confirm() {
+    final quantities = <int, int>{};
+    for (final item in widget.items) {
+      final quantity = int.tryParse(_controllers[item.lotId]!.text);
+      if (quantity == null || quantity < 1) {
+        setState(
+          () => _error = 'Enter a label quantity of at least 1 for every item.',
+        );
+        return;
+      }
+      quantities[item.lotId!] = quantity;
+    }
+    Navigator.pop(context, quantities);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.items.fold<int>(
+      0,
+      (sum, item) => sum + (int.tryParse(_controllers[item.lotId]!.text) ?? 0),
+    );
+
+    return AlertDialog(
+      title: const Text('Label print quantity'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set how many labels to print for each selected item.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              ...widget.items.map((item) {
+                final lotNumber =
+                    item.lot?.lotNumber ?? item.scannedLotNumber ?? '-';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppDimensions.spaceMd),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.productLabel,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Lot: $lotNumber',
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppDimensions.spaceMd),
+                      SizedBox(
+                        width: 88,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Labels',
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceHighest,
+                                borderRadius: BorderRadius.circular(
+                                  AppDimensions.inputRadius,
+                                ),
+                                border: Border.all(
+                                  color: AppColors.primary,
+                                  width: 1.25,
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _controllers[item.lotId],
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                textAlign: TextAlign.center,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 10,
+                                  ),
+                                  isDense: true,
+                                ),
+                                onChanged: (_) => setState(() => _error = null),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              if (_error != null) ...[
+                Text(
+                  _error!,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ),
+            const SizedBox(width: AppDimensions.spaceSm),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton.icon(
+                onPressed: _confirm,
+                icon: const Icon(Icons.print_rounded),
+                label: Text('Print $total labels'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 
 class _PrintProgressView extends StatelessWidget {
   const _PrintProgressView({required this.state, required this.onDone});
