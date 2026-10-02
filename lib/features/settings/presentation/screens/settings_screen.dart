@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/services/bluetooth_print_service.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -20,6 +21,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loadingDevices = false;
+  late final Future<PackageInfo> _packageInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _packageInfo = PackageInfo.fromPlatform();
+  }
 
   Future<void> _testPrint(String macAddress) async {
     final service = ref.read(bluetoothPrintServiceProvider);
@@ -381,24 +389,35 @@ PRINT 1
           // ── App Info Section ──
           const _SectionHeader(label: 'App Info'),
           const SizedBox(height: AppDimensions.spaceSm),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: const Column(
-              children: [
-                _InfoTile(label: 'Version', value: '1.0.0'),
-                Divider(height: 1),
-                _InfoTile(label: 'App', value: 'TRETECH Warehouse Manager'),
-                Divider(height: 1),
-                _InfoTile(
-                  label: 'Company',
-                  value: 'TREMED Surgical Solution Sdn Bhd',
+          FutureBuilder<PackageInfo>(
+            future: _packageInfo,
+            builder: (context, snapshot) {
+              final version = snapshot.hasData
+                  ? '${snapshot.data!.version}+${snapshot.data!.buildNumber}'
+                  : 'Loading...';
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+                  border: Border.all(color: AppColors.border),
                 ),
-              ],
-            ),
+                child: Column(
+                  children: [
+                    _InfoTile(label: 'Version', value: version),
+                    const Divider(height: 1),
+                    const _InfoTile(
+                      label: 'App',
+                      value: 'TRETECH Warehouse Manager',
+                    ),
+                    const Divider(height: 1),
+                    const _InfoTile(
+                      label: 'Company',
+                      value: 'TREMED Surgical Solution Sdn Bhd',
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
           const SizedBox(height: AppDimensions.spaceXl),
 
@@ -420,7 +439,7 @@ PRINT 1
               ),
             ),
           ),
-          
+
           const SizedBox(height: AppDimensions.space4xl),
         ],
       ),

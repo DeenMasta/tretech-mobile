@@ -406,6 +406,124 @@ class _ConsignmentItemsSectionState
   }
 }
 
+class _ConsignmentItemEditResult {
+  const _ConsignmentItemEditResult({
+    required this.proposedQuantity,
+    required this.quantity,
+    required this.remarks,
+  });
+
+  final int proposedQuantity;
+  final int quantity;
+  final String remarks;
+}
+
+class _EditConsignmentItemDialog extends StatefulWidget {
+  const _EditConsignmentItemDialog({required this.item});
+
+  final ConsignmentItem item;
+
+  @override
+  State<_EditConsignmentItemDialog> createState() =>
+      _EditConsignmentItemDialogState();
+}
+
+class _EditConsignmentItemDialogState
+    extends State<_EditConsignmentItemDialog> {
+  late final TextEditingController _proposedController;
+  late final TextEditingController _quantityController;
+  late final TextEditingController _remarksController;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _proposedController = TextEditingController(
+      text: '${widget.item.proposedQuantity}',
+    );
+    _quantityController = TextEditingController(
+      text: '${widget.item.quantity}',
+    );
+    _remarksController = TextEditingController(text: widget.item.remarks ?? '');
+  }
+
+  @override
+  void dispose() {
+    _proposedController.dispose();
+    _quantityController.dispose();
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final proposedQuantity = int.tryParse(_proposedController.text);
+    final quantity = int.tryParse(_quantityController.text);
+    if (proposedQuantity == null ||
+        proposedQuantity < 1 ||
+        quantity == null ||
+        quantity < 1) {
+      setState(() => _error = 'Quantities must be at least 1.');
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _ConsignmentItemEditResult(
+        proposedQuantity: proposedQuantity,
+        quantity: quantity,
+        remarks: _remarksController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit consignment item'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _proposedController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(labelText: 'Proposed qty'),
+            onChanged: (_) => setState(() => _error = null),
+          ),
+          const SizedBox(height: AppDimensions.spaceSm),
+          TextField(
+            controller: _quantityController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(labelText: 'Qty out'),
+            onChanged: (_) => setState(() => _error = null),
+          ),
+          const SizedBox(height: AppDimensions.spaceSm),
+          TextField(
+            controller: _remarksController,
+            maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Remarks'),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: AppDimensions.spaceSm),
+            Text(
+              _error!,
+              style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+}
+
 extension _ConsignmentDetailScreenActions on ConsignmentDetailScreen {
   Widget _itemCard(
     BuildContext context,
@@ -533,75 +651,20 @@ extension _ConsignmentDetailScreenActions on ConsignmentDetailScreen {
     int id,
     ConsignmentItem item,
   ) async {
-    final proposed = TextEditingController(text: '${item.proposedQuantity}');
-    final quantity = TextEditingController(text: '${item.quantity}');
-    final remarks = TextEditingController(text: item.remarks ?? '');
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_ConsignmentItemEditResult>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit consignment item'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: proposed,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Proposed qty'),
-            ),
-            const SizedBox(height: AppDimensions.spaceSm),
-            TextField(
-              controller: quantity,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Qty out'),
-            ),
-            const SizedBox(height: AppDimensions.spaceSm),
-            TextField(
-              controller: remarks,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Remarks'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (_) => _EditConsignmentItemDialog(item: item),
     );
-    final proposedValue = int.tryParse(proposed.text);
-    final quantityValue = int.tryParse(quantity.text);
-    if (saved != true ||
-        proposedValue == null ||
-        proposedValue < 1 ||
-        quantityValue == null ||
-        quantityValue < 1) {
-      proposed.dispose();
-      quantity.dispose();
-      remarks.dispose();
-      if (saved == true && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Quantities must be at least 1.')),
-        );
-      }
-      return;
-    }
+    if (result == null) return;
     try {
       await ref
           .read(consignmentRepositoryProvider)
           .updateItem(
             id,
             item.id,
-            proposedQuantity: proposedValue,
-            quantity: quantityValue,
-            remarks: remarks.text,
+            proposedQuantity: result.proposedQuantity,
+            quantity: result.quantity,
+            remarks: result.remarks,
           );
       ref.invalidate(consignmentItemsProvider(id));
       ref.invalidate(consignmentDetailProvider(id));
@@ -611,10 +674,6 @@ extension _ConsignmentDetailScreenActions on ConsignmentDetailScreen {
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
-    } finally {
-      proposed.dispose();
-      quantity.dispose();
-      remarks.dispose();
     }
   }
 

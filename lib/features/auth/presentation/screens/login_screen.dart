@@ -264,7 +264,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         const SizedBox(height: AppDimensions.spaceXxl),
                         Center(
                           child: Text(
-                            'Tretech Warehouse Management v1.0.0\nFor support contact your system administrator',
+                            'Tretech Warehouse Management\nFor support contact your system administrator',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.labelSmall.copyWith(
                               color: AppColors.textDisabled,

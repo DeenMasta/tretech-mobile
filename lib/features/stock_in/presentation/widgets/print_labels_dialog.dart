@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_text_field.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/models/stock_in_item_model.dart';
 import '../providers/qr_print_provider.dart';
@@ -37,6 +39,10 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
   late final List<StockInItemModel> _printable;
   late final Set<int> _selected; // lotId set
   late final Map<int, int> _labelQuantities; // lotId -> requested copies
+  late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
+  bool _isSearching = false;
+  String _search = '';
 
   @override
   void initState() {
@@ -46,6 +52,15 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
         .toList();
     _selected = _printable.map((i) => i.lotId!).toSet();
     _labelQuantities = {};
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   bool get _allSelected => _selected.length == _printable.length;
@@ -59,6 +74,42 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
 
   int _quantityFor(StockInItemModel item) =>
       _labelQuantities[item.lotId] ?? item.labelPrintQuantity;
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _search = '';
+      }
+    });
+
+    if (_isSearching) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isSearching) _searchFocusNode.requestFocus();
+      });
+    }
+  }
+
+  bool _matchesSearch(StockInItemModel item) {
+    final query = QrPayloadParser.lotNumberOrRaw(_search).toLowerCase();
+    if (query.isEmpty) return true;
+
+    final values = <String?>[
+      item.product?.productName,
+      item.product?.refNum,
+      item.scannedLotNumber,
+      item.lot?.lotNumber,
+      item.instrumentSet?.setName,
+      item.instrumentSet?.setCode,
+      ...?item.instrumentSet?.items.expand(
+        (component) => [component.name, component.code],
+      ),
+      ...item.componentLots.map((componentLot) => componentLot.lotNumber),
+    ];
+
+    return values.any((value) => value?.toLowerCase().contains(query) ?? false);
+  }
 
   void _toggleAll() {
     setState(() {
@@ -119,6 +170,7 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
   Widget build(BuildContext context) {
     final printer = ref.watch(settingsProvider);
     final printState = ref.watch(qrPrintNotifierProvider);
+    final filteredPrintable = _printable.where(_matchesSearch).toList();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -166,6 +218,20 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    if (!printState.isPrinting && !printState.isDone)
+                      IconButton(
+                        tooltip: _isSearching
+                            ? 'Close product search'
+                            : 'Search products',
+                        onPressed: _toggleSearch,
+                        icon: Icon(
+                          _isSearching
+                              ? Icons.close_rounded
+                              : Icons.search_rounded,
+                        ),
+                        color: AppColors.textMuted,
+                        iconSize: 20,
+                      ),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close_rounded),
@@ -207,6 +273,25 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                   ),
                 ),
 
+                if (_isSearching)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppDimensions.spaceLg,
+                      0,
+                      AppDimensions.spaceLg,
+                      AppDimensions.spaceSm,
+                    ),
+                    child: AppTextField(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      hint: 'Search by product, ref, lot or QR payload',
+                      prefixIcon: Icons.search_rounded,
+                      suffixIcon: Icons.close_rounded,
+                      onChanged: (value) => setState(() => _search = value),
+                      onSuffixIconTap: _toggleSearch,
+                    ),
+                  ),
+
                 if (_printable.isEmpty) ...[
                   Expanded(
                     child: Center(
@@ -227,6 +312,17 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                             textAlign: TextAlign.center,
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ] else if (filteredPrintable.isEmpty) ...[
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'No printable lots match your search.',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ),
                   ),
@@ -266,10 +362,10 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                   Expanded(
                     child: ListView.separated(
                       controller: controller,
-                      itemCount: _printable.length,
+                      itemCount: filteredPrintable.length,
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (_, i) {
-                        final item = _printable[i];
+                        final item = filteredPrintable[i];
                         final lotId = item.lotId!;
                         final checked = _selected.contains(lotId);
                         return CheckboxListTile(
@@ -332,8 +428,12 @@ class _PrintLabelsDialogState extends ConsumerState<PrintLabelsDialog> {
                                           _printable.map((i) => i.lotId!),
                                         ),
                                       );
-                                      await _requestPrintQuantities(
+                                      await _print(
                                         printer.macAddress,
+                                        labelQuantities: {
+                                          for (final item in _printable)
+                                            item.lotId!: _quantityFor(item),
+                                        },
                                       );
                                     },
                             ),
