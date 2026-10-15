@@ -176,15 +176,16 @@ class ReturnsRepository {
     }
   }
 
-  Future<void> updateItemRemarks(
+  Future<void> updateItem(
     int sessionId,
-    int itemId,
+    int itemId, {
+    required int quantity,
     String? remarks,
-  ) async {
+  }) async {
     try {
       await _dio.patch<void>(
         ApiEndpoints.returnSessionItem(sessionId, itemId),
-        data: {'remarks': _nullableRemarks(remarks)},
+        data: {'quantity': quantity, 'remarks': _nullableRemarks(remarks)},
       );
     } on DioException catch (e) {
       throw _wrap(e.error ?? const UnknownException());

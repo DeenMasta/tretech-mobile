@@ -69,6 +69,7 @@ class ReturnDetailNotifier extends Notifier<ReturnDetailState> {
     try {
       await _repo.deleteItem(_sessionId, itemId);
       await _load();
+      state = state.copyWith(isSaving: false);
       return true;
     } catch (e) {
       state = state.copyWith(isSaving: false, error: e.toString());
@@ -76,10 +77,25 @@ class ReturnDetailNotifier extends Notifier<ReturnDetailState> {
     }
   }
 
-  Future<bool> updateItemRemarks(int itemId, String? remarks) async {
-    return _updateRemarks(
-      () => _repo.updateItemRemarks(_sessionId, itemId, remarks),
-    );
+  Future<bool> updateItem({
+    required int itemId,
+    required int quantity,
+    String? remarks,
+  }) async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      await _repo.updateItem(
+        _sessionId,
+        itemId,
+        quantity: quantity,
+        remarks: remarks,
+      );
+      state = state.copyWith(isSaving: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+      return false;
+    }
   }
 
   Future<bool> updateReconciliationItemRemarks(

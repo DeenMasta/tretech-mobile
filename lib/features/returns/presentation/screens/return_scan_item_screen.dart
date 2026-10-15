@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../router/route_names.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_dimensions.dart';
 import '../../../../shared/theme/app_text_styles.dart';
@@ -143,24 +142,16 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   }
 
   Future<void> _selectConsignmentItem() async {
-    final returnedItems = [
+    final returnedSetIds = [
       ...?ref.read(returnDetailProvider(widget.sessionId)).session?.items,
       ..._recentItems,
-    ];
-    final returnedLotIds = returnedItems
-        .map((item) => item.lotId)
-        .whereType<int>()
-        .toSet();
-    final returnedSetIds = returnedItems
-        .map((item) => item.instrumentSetId)
-        .whereType<int>()
-        .toSet();
+    ].map((item) => item.instrumentSetId).whereType<int>().toSet();
     final selectableItems = _consignmentItems.where((item) {
       if (item.isSet) {
         return item.instrumentSetId != null &&
             !returnedSetIds.contains(item.instrumentSetId);
       }
-      return item.lot != null && !returnedLotIds.contains(item.lot!.id);
+      return item.lot != null;
     }).toList();
 
     final selected = await showModalBottomSheet<ConsignmentItem>(
@@ -174,7 +165,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
             const ListTile(title: Text('Items in this consignment')),
             if (selectableItems.isEmpty)
               const ListTile(
-                title: Text('All consignment items have already been added.'),
+                title: Text('No consignment items are available.'),
               ),
             ...selectableItems.map(
               (item) => ListTile(
@@ -327,20 +318,6 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       if (!_consignmentItems.any((item) => item.lot?.id == unit.id)) {
         throw StateError('Lot is not registered in this consignment');
       }
-      final returnedItems = [
-        ...?ref.read(returnDetailProvider(widget.sessionId)).session?.items,
-        ..._recentItems,
-      ];
-      if (returnedItems.any((item) => item.lotId == unit.id)) {
-        setState(() {
-          _resolvedLot = null;
-          _resolvedLotUnit = null;
-          _resolvedInstrumentSet = null;
-          _clearInstrumentResults();
-        });
-        _alreadyAdded(unit.lotNumber);
-        return;
-      }
       final lotBrief = ReturnLotBrief(
         id: unit.id,
         lotNumber: unit.lotNumber,
@@ -385,20 +362,6 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
-
-  void _alreadyAdded(String lotNumber) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Lot "$lotNumber" has already been added.'),
-        action: SnackBarAction(
-          label: 'VIEW ITEM',
-          onPressed: () =>
-              context.go(RouteNames.returnsDetailPath(widget.sessionId)),
-        ),
-      ),
-    );
-  }
 
   Future<void> _submit({bool andNext = false}) async {
     if (_resolvedLot == null && _resolvedInstrumentSet == null) {
@@ -447,14 +410,23 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       ref.read(returnDetailProvider(widget.sessionId).notifier).refresh();
 
       setState(() {
-        _recentItems.insert(0, item);
+        final existingIndex = _recentItems.indexWhere(
+          (existing) => existing.id == item.id,
+        );
+        if (existingIndex == -1) {
+          _recentItems.insert(0, item);
+        } else {
+          _recentItems[existingIndex] = item;
+        }
       });
 
       if (andNext) {
         _resetForm();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lot added. Ready for next scan.')),
+            const SnackBar(
+              content: Text('Return quantities saved. Ready for next scan.'),
+            ),
           );
         }
       } else {

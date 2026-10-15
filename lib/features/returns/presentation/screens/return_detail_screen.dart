@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
-
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
@@ -66,7 +65,7 @@ class ReturnDetailScreen extends ConsumerWidget {
     final canReopen =
         session.isCompleted &&
         permissions.contains('returns.reopen_reconciliation');
-    final canEditItemRemarks =
+    final canEditItems =
         !session.isReadOnly && permissions.contains('returns.create');
     final canEditReconciliationRemarks =
         session.reconciliation != null &&
@@ -127,15 +126,8 @@ class ReturnDetailScreen extends ConsumerWidget {
               sessionId: sessionId,
               session: session,
               isSaving: state.isSaving,
-              canEditRemarks: canEditItemRemarks,
-              onEditRemarks: (item) => _editRemarks(
-                context: context,
-                title: 'Edit returned item remarks',
-                initialValue: item.remarks,
-                onSave: (remarks) => ref
-                    .read(returnDetailProvider(sessionId).notifier)
-                    .updateItemRemarks(item.id, remarks),
-              ),
+              canEditItems: canEditItems,
+              onEditItem: (item) => _editReturnItem(context, ref, item),
             ),
 
             // ── Usage / invoice report (after reconciliation) ──────────────
@@ -272,6 +264,30 @@ class ReturnDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _editReturnItem(
+    BuildContext context,
+    WidgetRef ref,
+    ReturnSessionItem item,
+  ) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _EditReturnItemDialog(
+        item: item,
+        onSave: (quantity, remarks) => ref
+            .read(returnDetailProvider(sessionId).notifier)
+            .updateItem(itemId: item.id, quantity: quantity, remarks: remarks),
+      ),
+    );
+
+    if (saved == true && context.mounted) {
+      await ref.read(returnDetailProvider(sessionId).notifier).refresh();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Return item updated.')));
+    }
+  }
+
   Future<void> _print(
     BuildContext context,
     WidgetRef ref,
@@ -344,6 +360,120 @@ class ReturnDetailScreen extends ConsumerWidget {
 }
 
 // ── Session summary card ──────────────────────────────────────────────────────
+
+class _EditReturnItemDialog extends StatefulWidget {
+  const _EditReturnItemDialog({required this.item, required this.onSave});
+
+  final ReturnSessionItem item;
+  final Future<bool> Function(int quantity, String? remarks) onSave;
+
+  @override
+  State<_EditReturnItemDialog> createState() => _EditReturnItemDialogState();
+}
+
+class _EditReturnItemDialogState extends State<_EditReturnItemDialog> {
+  late final TextEditingController _quantityCtl;
+  late final TextEditingController _remarksCtl;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityCtl = TextEditingController(text: '${widget.item.quantity ?? 0}');
+    _remarksCtl = TextEditingController(text: widget.item.remarks ?? '');
+  }
+
+  @override
+  void dispose() {
+    _quantityCtl.dispose();
+    _remarksCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final quantity = int.tryParse(_quantityCtl.text);
+    if (quantity == null || quantity < 1) {
+      setState(() => _error = 'Returned quantity must be at least one.');
+      return;
+    }
+
+    // Remove the text selection overlay before closing the dialog route.
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    final success = await widget.onSave(quantity, _remarksCtl.text);
+    if (!mounted) return;
+
+    if (success) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    setState(() {
+      _saving = false;
+      _error =
+          'Unable to save. Check the quantity against the consigned quantity.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit returned item'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.item.displayLabel, style: AppTextStyles.labelMedium),
+            const SizedBox(height: AppDimensions.spaceMd),
+            TextField(
+              controller: _quantityCtl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: 'Returned Qty'),
+            ),
+            const SizedBox(height: AppDimensions.spaceMd),
+            TextField(
+              controller: _remarksCtl,
+              maxLines: 3,
+              maxLength: 1000,
+              decoration: const InputDecoration(
+                labelText: 'Remarks',
+                hintText: 'Optional remarks',
+              ),
+            ),
+            if (_error != null)
+              Text(
+                _error!,
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
 
 class _SessionCard extends StatelessWidget {
   const _SessionCard({required this.session});
@@ -434,15 +564,15 @@ class _ItemsSection extends ConsumerWidget {
     required this.sessionId,
     required this.session,
     required this.isSaving,
-    required this.canEditRemarks,
-    this.onEditRemarks,
+    required this.canEditItems,
+    this.onEditItem,
   });
 
   final int sessionId;
   final ReturnSessionModel session;
   final bool isSaving;
-  final bool canEditRemarks;
-  final ValueChanged<ReturnSessionItem>? onEditRemarks;
+  final bool canEditItems;
+  final ValueChanged<ReturnSessionItem>? onEditItem;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -501,9 +631,7 @@ class _ItemsSection extends ConsumerWidget {
               onDelete: !session.isReadOnly
                   ? () => _confirmDelete(context, ref, item)
                   : null,
-              onEditRemarks: canEditRemarks
-                  ? () => onEditRemarks?.call(item)
-                  : null,
+              onEditItem: canEditItems ? () => onEditItem?.call(item) : null,
             ),
           ),
       ],
@@ -550,14 +678,14 @@ class _ItemTile extends StatelessWidget {
     required this.isDraft,
     required this.isSaving,
     this.onDelete,
-    this.onEditRemarks,
+    this.onEditItem,
   });
 
   final ReturnSessionItem item;
   final bool isDraft;
   final bool isSaving;
   final VoidCallback? onDelete;
-  final VoidCallback? onEditRemarks;
+  final VoidCallback? onEditItem;
 
   @override
   Widget build(BuildContext context) {
@@ -610,11 +738,11 @@ class _ItemTile extends StatelessWidget {
                   size: 14,
                   color: AppColors.textMuted,
                 ),
-              if (onEditRemarks != null)
+              if (onEditItem != null)
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Edit remarks',
-                  onPressed: isSaving ? null : onEditRemarks,
+                  tooltip: 'Edit returned quantity and remarks',
+                  onPressed: isSaving ? null : onEditItem,
                 ),
             ],
           ),
