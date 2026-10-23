@@ -56,6 +56,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
   bool _isLoadingConsignmentItems = false;
   bool _consignmentItemsLoadFailed = false;
   int? _loadedConsignmentId;
+  String? _pendingScannerPayload;
   List<ConsignmentItem> _consignmentItems = const [];
   ReturnLotBrief? _resolvedLot;
   InventoryUnitModel? _resolvedLotUnit;
@@ -73,6 +74,13 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     super.initState();
     _scannerSub = _scannerChannel.receiveBroadcastStream().listen((data) {
       if (!mounted || _isLookingUp) return;
+      // A hardware scanner can emit before the async consignment-item request
+      // completes. Keep the value rather than validating it against an empty
+      // local list and incorrectly rejecting a valid lot.
+      if (_loadedConsignmentId == null || _isLoadingConsignmentItems) {
+        _pendingScannerPayload = data.toString();
+        return;
+      }
       _lookupScannedLot(data.toString());
     });
   }
@@ -247,7 +255,10 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     });
   }
 
-  void _applyInstrumentSet(InstrumentSetModel set) {
+  void _applyInstrumentSet(
+    InstrumentSetModel set, {
+    Set<int> prefilledProductIds = const {},
+  }) {
     setState(() {
       _lotCtl.clear();
       _resolvedLot = null;
@@ -255,8 +266,13 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       _resolvedInstrumentSet = set;
       _clearInstrumentResults();
       for (final item in set.items) {
-        _instrumentResults[item.id] = 0;
-        _instrumentResultsCtls[item.id] = TextEditingController(text: '0');
+        final quantity = prefilledProductIds.contains(item.id)
+            ? item.quantity
+            : 0;
+        _instrumentResults[item.id] = quantity;
+        _instrumentResultsCtls[item.id] = TextEditingController(
+          text: quantity.toString(),
+        );
       }
     });
   }
@@ -289,6 +305,12 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     } finally {
       if (mounted) setState(() => _isLoadingConsignmentItems = false);
     }
+
+    final pendingPayload = _pendingScannerPayload;
+    if (mounted && pendingPayload != null && !_consignmentItemsLoadFailed) {
+      _pendingScannerPayload = null;
+      await _lookupScannedLot(pendingPayload);
+    }
   }
 
   Future<void> _lookupLot(String value) async {
@@ -315,7 +337,48 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
       final unit = await ref
           .read(inventoryRepositoryProvider)
           .lookupByLot(value);
-      if (!_consignmentItems.any((item) => item.lot?.id == unit.id)) {
+      final isDirectConsignmentLot = _consignmentItems.any(
+        (item) => item.lot?.id == unit.id,
+      );
+      final containingSets = _consignmentItems.where((item) {
+        if (!item.isSet || item.instrumentSetId == null) return false;
+        return item.instrumentSetComponents.any(
+          (component) => component.lotNumbers.any(
+            (lotNumber) =>
+                lotNumber.trim().toLowerCase() ==
+                unit.lotNumber.trim().toLowerCase(),
+          ),
+        );
+      }).toList();
+
+      // Generic instrument-set consignments store their component lots in
+      // movements, rather than in consignment_items.lot_id. A component scan
+      // therefore identifies the set return, not a standalone lot return.
+      if (!isDirectConsignmentLot && containingSets.isNotEmpty) {
+        if (containingSets.length > 1) {
+          throw StateError('Lot belongs to more than one instrument set.');
+        }
+
+        final consignmentSet = containingSets.single;
+        final set = await ref
+            .read(stockInMasterDataRepositoryProvider)
+            .getInstrumentSet(consignmentSet.instrumentSetId!);
+        final matchingProductIds = consignmentSet.instrumentSetComponents
+            .where(
+              (component) => component.lotNumbers.any(
+                (lotNumber) =>
+                    lotNumber.trim().toLowerCase() ==
+                    unit.lotNumber.trim().toLowerCase(),
+              ),
+            )
+            .map((component) => component.productId)
+            .toSet();
+        if (!mounted) return;
+        _applyInstrumentSet(set, prefilledProductIds: matchingProductIds);
+        return;
+      }
+
+      if (!isDirectConsignmentLot) {
         throw StateError('Lot is not registered in this consignment');
       }
       final lotBrief = ReturnLotBrief(
