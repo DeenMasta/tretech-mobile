@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +13,7 @@ import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
 import '../../../../shared/widgets/scan_input_field.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../inventory/data/models/inventory_unit_model.dart';
 import '../../../inventory/data/repositories/inventory_repository.dart';
@@ -391,56 +390,29 @@ class _DisposalItemFormScreenState
     );
     if (result == null || !mounted) return;
     setState(() {
-      _lotCtl.text = _lotNumberFromQrPayload(result.value);
+      _lotCtl.text = result.value;
       _lot = null;
       _isScanning = true;
     });
     await _findLot();
   }
 
-  String _lotNumberFromQrPayload(String rawValue) {
-    final value = rawValue.trim();
-    if (value.isEmpty) return value;
-    try {
-      final json = jsonDecode(value);
-      if (json is Map<String, dynamic>) {
-        final lot = json['lot_number']?.toString().trim();
-        if (lot?.isNotEmpty == true) return lot!;
-      }
-    } catch (_) {
-      // Current labels use V=1;...;LOT=... payloads.
-    }
-    final match = RegExp(
-      r'(?:^|;)LOT[=:]([^;]+)',
-      caseSensitive: false,
-    ).firstMatch(value);
-    if (match?.group(1)?.trim().isNotEmpty == true) {
-      return match!.group(1)!.trim();
-    }
-    var parsed = value.split(';').first.trim();
-    if (parsed.contains('MFG=')) parsed = parsed.split('MFG=').first.trim();
-    if (parsed.contains('EXP=')) parsed = parsed.split('EXP=').first.trim();
-    return parsed;
-  }
-
   Future<void> _findLot() async {
     final rawQuery = _lotCtl.text.trim();
     if (rawQuery.isEmpty) return;
-    final query = _lotNumberFromQrPayload(rawQuery);
-    if (query != rawQuery) _lotCtl.text = query;
+    final parsed = QrPayloadParser.lotAndRefOrRaw(rawQuery);
+    final query = parsed.lotNumber;
+    if (parsed.refNum == null && query != rawQuery) _lotCtl.text = query;
     try {
-      final results = await ref
+      final scannedLot = await ref
           .read(inventoryRepositoryProvider)
-          .listInventoryUnits(search: query, status: 'all', perPage: 50);
+          .lookupByLot(query, refNum: parsed.refNum);
       final existing = await ref.read(
         disposalItemsProvider(widget.disposalId).future,
       );
       if (!mounted) return;
       final usedIds = existing.map((item) => item.lotId).toSet();
-      final scannedLot = results.items
-          .where((lot) => lot.lotNumber.toLowerCase() == query.toLowerCase())
-          .firstOrNull;
-      if (scannedLot != null && usedIds.contains(scannedLot.id)) {
+      if (usedIds.contains(scannedLot.id)) {
         setState(() {
           _lot = null;
           _isScanning = false;
@@ -448,22 +420,8 @@ class _DisposalItemFormScreenState
         _alreadyAdded(scannedLot.lotNumber);
         return;
       }
-      final match = results.items
-          .where(
-            (lot) =>
-                lot.lotNumber.toLowerCase() == query.toLowerCase() &&
-                !usedIds.contains(lot.id),
-          )
-          .firstOrNull;
-      if (match != null) {
-        _selectLot(match);
-        FocusScope.of(context).unfocus();
-      } else {
-        setState(() => _isScanning = false);
-        _error(
-          'No available lot matches "$query". Use the list button to browse lots.',
-        );
-      }
+      _selectLot(scannedLot);
+      FocusScope.of(context).unfocus();
     } catch (e) {
       if (mounted) setState(() => _isScanning = false);
       _error(e);

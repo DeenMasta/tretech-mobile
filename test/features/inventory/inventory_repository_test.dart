@@ -77,11 +77,12 @@ void main() {
     });
 
     test('uses encoded lot and reference values in lookup paths', () async {
-      await repository.lookupByLot('LOT / 42');
+      await repository.lookupByLot('LOT / 42', refNum: 'REF / 9');
       expect(
         request!.path,
         '/api/v1/inventory-units/lookup/by-lot/LOT%20%2F%2042',
       );
+      expect(request!.queryParameters, {'ref_num': 'REF / 9'});
 
       await repository.lookupByRef('REF / 9');
       expect(

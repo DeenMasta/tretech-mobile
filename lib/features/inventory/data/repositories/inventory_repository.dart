@@ -238,12 +238,18 @@ class InventoryRepository {
     }
   }
 
-  Future<InventoryUnitModel> lookupByLot(String lotNumber) async {
+  Future<InventoryUnitModel> lookupByLot(
+    String lotNumber, {
+    String? refNum,
+  }) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         ApiEndpoints.inventoryLookupByLot(
           Uri.encodeComponent(lotNumber.trim()),
         ),
+        queryParameters: {
+          'ref_num': (refNum ?? '').trim().isEmpty ? null : refNum!.trim(),
+        },
       );
       return InventoryUnitModel.fromJson(
         _unwrapData(response.data ?? const {}),

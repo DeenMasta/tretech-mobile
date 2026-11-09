@@ -348,11 +348,11 @@ final inventoryProductProvider = FutureProvider.autoDispose
     });
 
 final inventoryLookupByLotProvider = FutureProvider.autoDispose
-    .family<InventoryUnitModel?, String>((ref, lotNumber) async {
+    .family<InventoryUnitModel?, ({String lotNumber, String? refNum})>((ref, lookup) async {
       try {
         return await ref
             .watch(inventoryRepositoryProvider)
-            .lookupByLot(lotNumber)
+            .lookupByLot(lookup.lotNumber, refNum: lookup.refNum)
             .timeout(const Duration(seconds: 5));
       } catch (e) {
         final err = e.toString().toLowerCase();

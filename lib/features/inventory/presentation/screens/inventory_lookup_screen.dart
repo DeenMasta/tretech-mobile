@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +12,7 @@ import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_error_widget.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
 import '../../../../shared/widgets/scan_input_field.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../../stock_in/presentation/widgets/barcode_scanner_sheet.dart';
 import '../providers/inventory_providers.dart';
 import '../widgets/inventory_unit_tile.dart';
@@ -29,6 +29,7 @@ class _InventoryLookupScreenState extends ConsumerState<InventoryLookupScreen> {
   late final TextEditingController _queryCtl;
   String _mode = 'lot';
   String _submitted = '';
+  String? _submittedRefNum;
   bool _isScanning = false;
   Timer? _debounce;
 
@@ -62,66 +63,18 @@ class _InventoryLookupScreenState extends ConsumerState<InventoryLookupScreen> {
     setState(() {
       _isScanning = false;
       final rawQuery = _queryCtl.text.trim();
-      _submitted = _mode == 'lot'
-          ? _lotNumberFromQrPayload(rawQuery)
-          : _refNumberFromQrPayload(rawQuery);
-      if (_queryCtl.text.trim() != _submitted) {
+      if (_mode == 'lot') {
+        final parsed = QrPayloadParser.lotAndRefOrRaw(rawQuery);
+        _submitted = parsed.lotNumber;
+        _submittedRefNum = parsed.refNum;
+      } else {
+        _submitted = QrPayloadParser.refNumberOrRaw(rawQuery);
+        _submittedRefNum = null;
+      }
+      if (_submittedRefNum == null && _queryCtl.text.trim() != _submitted) {
         _queryCtl.text = _submitted;
       }
     });
-  }
-
-  String _refNumberFromQrPayload(String rawValue) {
-    final value = rawValue.trim();
-    if (value.isEmpty) return value;
-
-    try {
-      final json = jsonDecode(value);
-      if (json is Map<String, dynamic>) {
-        final ref = json['ref_num']?.toString().trim() ?? json['reference']?.toString().trim();
-        if (ref?.isNotEmpty == true) return ref!;
-      }
-    } catch (_) {}
-
-    final match = RegExp(
-      r'(?:^|;)REF[=:]([^;]+)',
-      caseSensitive: false,
-    ).firstMatch(value);
-    if (match?.group(1)?.trim().isNotEmpty == true) {
-      return match!.group(1)!.trim();
-    }
-
-    return value;
-  }
-
-  String _lotNumberFromQrPayload(String rawValue) {
-    final value = rawValue.trim();
-    if (value.isEmpty) return value;
-
-    try {
-      final json = jsonDecode(value);
-      if (json is Map<String, dynamic>) {
-        final lot = json['lot_number']?.toString().trim();
-        if (lot?.isNotEmpty == true) return lot!;
-      }
-    } catch (_) {}
-
-    final match = RegExp(
-      r'(?:^|;)LOT[=:]([^;]+)',
-      caseSensitive: false,
-    ).firstMatch(value);
-    if (match?.group(1)?.trim().isNotEmpty == true) {
-      return match!.group(1)!.trim();
-    }
-
-    var parsed = value.split(';').first.trim();
-    if (parsed.contains('MFG=')) {
-      parsed = parsed.split('MFG=').first.trim();
-    }
-    if (parsed.contains('EXP=')) {
-      parsed = parsed.split('EXP=').first.trim();
-    }
-    return parsed;
   }
 
   Future<void> _scan() async {
@@ -253,7 +206,12 @@ class _InventoryLookupScreenState extends ConsumerState<InventoryLookupScreen> {
   }
 
   Widget _buildLotLookup() {
-    final asyncData = ref.watch(inventoryLookupByLotProvider(_submitted));
+    final asyncData = ref.watch(
+      inventoryLookupByLotProvider((
+        lotNumber: _submitted,
+        refNum: _submittedRefNum,
+      )),
+    );
 
     return asyncData.when(
       loading: () => const Center(child: CircularProgressIndicator()),

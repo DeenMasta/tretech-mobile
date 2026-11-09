@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +12,9 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/scan_input_field.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/module_app_bar.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
+import '../../../inventory/data/models/inventory_unit_model.dart';
+import '../../../inventory/data/repositories/inventory_repository.dart';
 import '../../../stock_in/data/models/instrument_set_model.dart';
 import '../../../stock_in/presentation/widgets/barcode_scanner_sheet.dart';
 import '../../data/models/consignment_models.dart';
@@ -318,75 +319,54 @@ class _ConsignmentItemFormScreenState
     );
     if (result == null || !mounted) return;
     setState(() {
-      _lotSearch.text = _lotNumberFromQrPayload(result.value);
+      _lotSearch.text = result.value;
       _lot = null;
     });
     await _findScannedLot();
-  }
-
-  String _lotNumberFromQrPayload(String rawValue) {
-    final value = rawValue.trim();
-    if (value.isEmpty) return value;
-
-    try {
-      final json = jsonDecode(value);
-      if (json is Map<String, dynamic>) {
-        final lot = json['lot_number']?.toString().trim();
-        if (lot?.isNotEmpty == true) return lot!;
-      }
-    } catch (_) {
-      // Current stock-in QR labels use the compact V=1;...;LOT=... payload.
-    }
-
-    final match = RegExp(
-      r'(?:^|;)LOT[=:]([^;]+)',
-      caseSensitive: false,
-    ).firstMatch(value);
-    if (match?.group(1)?.trim().isNotEmpty == true) {
-      return match!.group(1)!.trim();
-    }
-
-    // Legacy stock-in labels put the lot in the first segment, followed by
-    // metadata such as ;MFG=... and ;EXP=.... or sometimes just MFG=... without semicolons
-    var parsed = value.split(';').first.trim();
-    if (parsed.contains('MFG=')) {
-      parsed = parsed.split('MFG=').first.trim();
-    }
-    if (parsed.contains('EXP=')) {
-      parsed = parsed.split('EXP=').first.trim();
-    }
-    return parsed;
   }
 
   Future<void> _findScannedLot() async {
     final rawQuery = _lotSearch.text.trim();
     if (rawQuery.isEmpty) return;
 
-    final query = _lotNumberFromQrPayload(rawQuery);
-    if (query != rawQuery) {
+    final parsed = QrPayloadParser.lotAndRefOrRaw(rawQuery);
+    final query = parsed.lotNumber;
+    if (parsed.refNum == null && query != rawQuery) {
       _lotSearch.text = query;
     }
 
-    final options = await ref
-        .read(consignmentRepositoryProvider)
-        .lots(search: query);
-    if (!mounted) return;
+    try {
+      final unit = await ref
+          .read(inventoryRepositoryProvider)
+          .lookupByLot(query, refNum: parsed.refNum);
+      if (!mounted) return;
 
-    final match = options
-        .where((lot) => lot.lotNumber.toLowerCase() == query.toLowerCase())
-        .firstOrNull;
-
-    if (match != null) {
-      setState(() {
-        _lot = match;
-        _isScanning = false;
-      });
-      FocusScope.of(context).unfocus();
-      return;
+      if (unit.status == 'available') {
+        setState(() {
+          _lot = _asConsignmentLot(unit);
+          _isScanning = false;
+        });
+        FocusScope.of(context).unfocus();
+        return;
+      }
+      setState(() => _isScanning = false);
+      _error('No available lot matches "$query". Browse lots to find it.');
+    } catch (error) {
+      if (mounted) setState(() => _isScanning = false);
+      _error(error);
     }
-    setState(() => _isScanning = false);
-    _error('No available lot matches "$query". Browse lots to find it.');
   }
+
+  ConsignmentLot _asConsignmentLot(InventoryUnitModel unit) => ConsignmentLot(
+    id: unit.id,
+    lotNumber: unit.lotNumber,
+    status: unit.status,
+    productName: unit.product?.productName,
+    productType: unit.product?.productType,
+    refNum: unit.product?.refNum,
+    expiryDate: unit.expiryDate,
+    quantityAvailable: unit.quantityAvailable,
+  );
 
   Future<void> _save() async {
     final proposed = int.tryParse(_proposed.text);

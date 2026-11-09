@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +11,7 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/content_card.dart';
 import '../../../../shared/widgets/scan_input_field.dart';
 import '../../../../shared/widgets/section_header.dart';
+import '../../../../core/utils/qr_payload_parser.dart';
 import '../../data/models/return_session_model.dart';
 import '../../data/repositories/returns_repository.dart';
 import '../providers/returns_detail_provider.dart';
@@ -112,41 +111,10 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     await _lookupScannedLot(result);
   }
 
-  /// Stock-in QR labels contain metadata such as
-  /// `V=1;REF=IMP-003;LOT=3456;MFG=-;EXP=-;PAD=0000`.
-  /// Returns must look up the lot value, not the whole QR payload.
-  String _lotNumberFromQrPayload(String rawValue) {
-    final value = rawValue.trim();
-    if (value.isEmpty) return value;
-
-    try {
-      final json = jsonDecode(value);
-      if (json is Map<String, dynamic>) {
-        final lot = json['lot_number']?.toString().trim();
-        if (lot?.isNotEmpty == true) return lot!;
-      }
-    } catch (_) {
-      // Continue with the compact and legacy QR label formats.
-    }
-
-    final match = RegExp(
-      r'(?:^|;)LOT[=:]([^;]+)',
-      caseSensitive: false,
-    ).firstMatch(value);
-    if (match?.group(1)?.trim().isNotEmpty == true) {
-      return match!.group(1)!.trim();
-    }
-
-    var parsed = value.split(';').first.trim();
-    if (parsed.contains('MFG=')) parsed = parsed.split('MFG=').first.trim();
-    if (parsed.contains('EXP=')) parsed = parsed.split('EXP=').first.trim();
-    return parsed;
-  }
-
   Future<void> _lookupScannedLot(String rawValue) async {
-    final lotNumber = _lotNumberFromQrPayload(rawValue);
-    _lotCtl.text = lotNumber;
-    await _lookupLot(lotNumber);
+    final parsed = QrPayloadParser.lotAndRefOrRaw(rawValue);
+    _lotCtl.text = parsed.lotNumber;
+    await _lookupLot(parsed.lotNumber, refNum: parsed.refNum);
   }
 
   Future<void> _selectConsignmentItem() async {
@@ -203,7 +171,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
 
     if (!selected.isSet) {
       _lotCtl.text = selected.lot!.lotNumber;
-      await _lookupLot(selected.lot!.lotNumber);
+      await _lookupLot(selected.lot!.lotNumber, refNum: selected.lot!.refNum);
       return;
     }
 
@@ -313,7 +281,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     }
   }
 
-  Future<void> _lookupLot(String value) async {
+  Future<void> _lookupLot(String value, {String? refNum}) async {
     if (value.trim().isEmpty) {
       setState(() {
         _resolvedLot = null;
@@ -336,7 +304,7 @@ class _ReturnScanItemScreenState extends ConsumerState<ReturnScanItemScreen> {
     try {
       final unit = await ref
           .read(inventoryRepositoryProvider)
-          .lookupByLot(value);
+          .lookupByLot(value, refNum: refNum);
       final isDirectConsignmentLot = _consignmentItems.any(
         (item) => item.lot?.id == unit.id,
       );
